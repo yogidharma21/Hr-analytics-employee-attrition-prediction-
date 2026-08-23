@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+import plotly.io as pio
 import streamlit as st
 from sklearn.compose import ColumnTransformer
 from sklearn.linear_model import LogisticRegression
@@ -44,7 +45,34 @@ C_LEAVE_SOFT = "#FBE6D2"
 C_ACCENT_GOOD = "#2F9E64"
 C_ACCENT_BAD = "#D65A5A"
 
-PLOTLY_TEMPLATE = "plotly_white"
+# Custom Plotly template — makes sure axis titles, tick labels, and chart titles
+# always render in dark, readable colors regardless of the host page's theme.
+_hr_template = go.layout.Template()
+_hr_template.layout = go.Layout(
+    font=dict(family="Inter, Segoe UI, sans-serif", color=C_TEXT, size=13),
+    title=dict(font=dict(color=C_TEXT, size=16)),
+    paper_bgcolor=C_SURFACE,
+    plot_bgcolor=C_SURFACE,
+    xaxis=dict(
+        title_font=dict(color=C_TEXT, size=13),
+        tickfont=dict(color=C_TEXT_MUTED, size=12),
+        gridcolor=C_BORDER,
+        linecolor=C_BORDER,
+        zerolinecolor=C_BORDER,
+    ),
+    yaxis=dict(
+        title_font=dict(color=C_TEXT, size=13),
+        tickfont=dict(color=C_TEXT_MUTED, size=12),
+        gridcolor=C_BORDER,
+        linecolor=C_BORDER,
+        zerolinecolor=C_BORDER,
+    ),
+    legend=dict(font=dict(color=C_TEXT)),
+    coloraxis_colorbar=dict(tickfont=dict(color=C_TEXT_MUTED)),
+)
+pio.templates["hr_dashboard"] = _hr_template
+
+PLOTLY_TEMPLATE = "plotly_white+hr_dashboard"
 
 
 # ======================================================================================
