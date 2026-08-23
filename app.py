@@ -362,6 +362,8 @@ def bar_rate_chart(data, x_col, overall_rate, title, horizontal=False):
         texttemplate="%{text}%",
         textposition="outside",
         textfont=dict(color=C_TEXT, size=13),
+        outsidetextfont=dict(color=C_TEXT, size=13),
+        insidetextfont=dict(color=C_TEXT, size=13),
         cliponaxis=False,
     )
     if horizontal:
@@ -454,7 +456,7 @@ if page == "📊 Workforce Overview":
             dept_counts, x="Count", y="Department", orientation="h",
             color_discrete_sequence=[C_STAY], text="Count",
         )
-        fig.update_traces(textposition="outside", textfont=dict(color=C_TEXT, size=12), cliponaxis=False)
+        fig.update_traces(textposition="outside", textfont=dict(color=C_TEXT, size=12), outsidetextfont=dict(color=C_TEXT, size=12), insidetextfont=dict(color=C_TEXT, size=12), cliponaxis=False)
         fig.update_layout(template=PLOTLY_TEMPLATE, title=dict(text="Jumlah Karyawan per Departemen", font=dict(color=C_TEXT, size=16)), font=dict(color=C_TEXT),
                            margin=dict(l=10, r=10, t=50, b=10), height=340,
                            plot_bgcolor=C_SURFACE, paper_bgcolor=C_SURFACE)
@@ -469,7 +471,7 @@ if page == "📊 Workforce Overview":
             role_counts, x="Count", y="JobRole", orientation="h",
             color_discrete_sequence=[C_STAY], text="Count",
         )
-        fig.update_traces(textposition="outside", textfont=dict(color=C_TEXT, size=12), cliponaxis=False)
+        fig.update_traces(textposition="outside", textfont=dict(color=C_TEXT, size=12), outsidetextfont=dict(color=C_TEXT, size=12), insidetextfont=dict(color=C_TEXT, size=12), cliponaxis=False)
         fig.update_layout(template=PLOTLY_TEMPLATE, title=dict(text="Jumlah Karyawan per Job Role", font=dict(color=C_TEXT, size=16)), font=dict(color=C_TEXT),
                            margin=dict(l=10, r=10, t=50, b=10), height=340, yaxis={"categoryorder": "total ascending"},
                            plot_bgcolor=C_SURFACE, paper_bgcolor=C_SURFACE)
