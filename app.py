@@ -30,25 +30,22 @@ RANDOM_STATE = 42
 # ------------------------------------------------------------------------------------
 # Palette — Clean Modern Enterprise / SaaS Theme
 # ------------------------------------------------------------------------------------
-C_BG = "#F8FAFC"             # Slate 50 (Soft light background)
-C_SURFACE = "#FFFFFF"        # Pure white for cards
-C_SIDEBAR = "#0F172A"        # Slate 900 (Sleek deep dark blue)
-C_SIDEBAR_TEXT = "#F1F5F9"   # Light text for sidebar
+C_BG = "#F8FAFC"             # Slate 50
+C_SURFACE = "#FFFFFF"        # Pure white
+C_SIDEBAR = "#0F172A"        # Slate 900
+C_SIDEBAR_TEXT = "#F1F5F9"   # Light text
 C_SIDEBAR_MUTED = "#94A3B8"  # Slate 400
 C_TEXT = "#0F172A"           # Slate 900
 C_TEXT_MUTED = "#64748B"     # Slate 500
 C_BORDER = "#E2E8F0"         # Slate 200
 
-# Primary Pairs (Vibrant & Distinct)
+# Primary Pairs
 C_STAY = "#2563EB"           # Royal Blue (Bertahan)
-C_LEAVE = "#EA580C"          # Warm Orange/Coral (Keluar/Risiko)
-C_STAY_SOFT = "#EFF6FF"      # Light Blue tint
-C_LEAVE_SOFT = "#FFF7ED"     # Light Orange tint
+C_LEAVE = "#EA580C"          # Warm Coral (Keluar/Risiko)
+C_STAY_SOFT = "#EFF6FF"      
+C_LEAVE_SOFT = "#FFF7ED"     
 
-C_ACCENT_GOOD = "#10B981"    # Emerald Green
-C_ACCENT_BAD = "#EF4444"     # Red
-
-# Custom Plotly template — Makes charts crisp & modern
+# Custom Plotly Template
 _hr_template = go.layout.Template()
 _hr_template.layout = go.Layout(
     font=dict(family="Inter, -apple-system, BlinkMacSystemFont, sans-serif", color=C_TEXT, size=12),
@@ -202,17 +199,6 @@ st.markdown(
             border-radius: 999px;
             letter-spacing: 0.03em;
         }}
-        .badge-safe {{
-            display: inline-block;
-            background-color: {C_STAY_SOFT};
-            color: #1E40AF;
-            border: 1px solid #DBEAFE;
-            font-weight: 700;
-            font-size: 0.7rem;
-            padding: 2px 10px;
-            border-radius: 999px;
-            letter-spacing: 0.03em;
-        }}
         
         .divider-line {{
             border: none;
@@ -229,7 +215,7 @@ st.markdown(
 
 
 # ======================================================================================
-# DATA LOADING + FEATURE ENGINEERING (mirrors notebook)
+# DATA LOADING + FEATURE ENGINEERING
 # ======================================================================================
 @st.cache_data(show_spinner=False)
 def load_data():
@@ -654,7 +640,7 @@ elif page == "🧑‍💼 Employee Profile":
 # ======================================================================================
 elif page == "🎯 HR Action Center":
     st.title("HR Action Center")
-    st.caption("Prediksi risiko attrition untuk karyawan unlabeled serta rincian rekomendasi strategis HR.")
+    st.caption("Daftar karyawan berisiko tinggi (dari data yang belum berlabel) hasil prediksi model, plus ringkasan insight & rekomendasi.")
 
     m = model_bundle["metrics"]
     c1, c2, c3, c4, c5 = st.columns(5)
@@ -670,7 +656,7 @@ elif page == "🎯 HR Action Center":
     col1, col2 = st.columns([1.3, 1])
     with col1:
         st.markdown("<div class='section-card'>", unsafe_allow_html=True)
-        section_title("🔴 Top 15 Karyawan Berisiko Tertinggi", "Hasil kalkulasi probabilitas model Logistic Regression")
+        section_title("🔴 Top 15 Karyawan Berisiko Tertinggi", "Berdasarkan skor prediksi attrition model")
         top_risk = risk_df.head(15).copy()
         top_risk["AttritionRiskScore"] = top_risk["AttritionRiskScore"].astype(str) + "%"
         st.dataframe(top_risk, use_container_width=True, height=410, hide_index=True)
@@ -680,19 +666,19 @@ elif page == "🎯 HR Action Center":
         st.markdown("<div class='section-card'>", unsafe_allow_html=True)
         section_title("Distribusi Skor Risiko Attrition")
         fig = px.histogram(risk_df, x="AttritionRiskScore", nbins=25, color_discrete_sequence=[C_LEAVE])
-        fig.add_vline(x=50, line_dash="dash", line_color=C_TEXT_MUTED, annotation_text="Threshold 50%")
+        fig.add_vline(x=50, line_dash="dash", line_color=C_TEXT_MUTED, annotation_text="Skor 50%")
         fig.update_layout(template=PLOTLY_TEMPLATE, margin=dict(l=10, r=10, t=10, b=10), height=410)
         st.plotly_chart(fig, use_container_width=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown("<div class='section-card'>", unsafe_allow_html=True)
-    section_title("⚠️ Kelompok Rentan (High-Risk Groups)", "Segmen karyawan dengan attrition rate jauh melampaui rata-rata")
+    section_title("⚠️ Kelompok Rentan (High-Risk Groups)", "Kelompok karyawan dengan attrition rate jauh di atas rata-rata perusahaan")
     g1, g2, g3, g4 = st.columns(4)
     groups = [
         ("Sales Representative", "43.1% attrition rate", g1),
         ("Sering Lembur (OverTime = Yes)", "31.9% attrition rate", g2),
-        ("Tenure Baru (0 tahun)", "Attrition tertinggi di tenure group", g3),
-        ("Work-Life Balance Rendah", "Skor 1 — Attrition tertinggi", g4),
+        ("Tenure Baru (0 tahun)", "Attrition tertinggi di kelompok tenure", g3),
+        ("Work-Life Balance Rendah", "Skor 1 — attrition tertinggi", g4),
     ]
     for name, desc, col in groups:
         with col:
@@ -713,33 +699,35 @@ elif page == "🎯 HR Action Center":
         st.markdown("<div class='section-card'>", unsafe_allow_html=True)
         section_title("📌 Key Insights")
         insights = [
-            "<b>OverTime (Lembur):</b> Indikator paling signifikan (31.9% attrition vs 10.8%).",
-            "<b>Job Role:</b> Sales Representative memiliki tingkat attrition paling tinggi (43.1%).",
-            "<b>Tenure Rawan:</b> Karyawan baru (0 tahun) paling rentan keluar; kestabilan meningkat setelah 3 tahun.",
-            "<b>Kepuasan & Balance:</b> Skor kepuasan kerja dan WLB rendah berkorelasi langsung dengan pengunduran diri.",
-            "<b>Model Performance:</b> Model Logistic Regression terkalibrasi baik dengan ROC-AUC <b>0.822</b> pada test set.",
+            "Lembur (OverTime) adalah red flag terbesar — attrition rate 31.9% vs 10.8%.",
+            "Sales Representative punya attrition rate tertinggi di antara semua job role (43.1%).",
+            "Karyawan dengan tenure baru (0 tahun) paling rentan keluar; risiko menurun seiring masa kerja.",
+            "Job satisfaction & work-life balance rendah berkorelasi kuat dengan attrition.",
+            "TotalWorkingYears, YearsWithCurrManager, dan Age adalah prediktor numerik terkuat.",
+            "OverTime, JobRole, dan MaritalStatus signifikan secara statistik (Chi-Square, p < 0.05).",
+            "Model Logistic Regression (tuned) mencapai ROC-AUC 0.822 di test set.",
         ]
         for ins in insights:
-            st.markdown(f"<div style='margin-bottom:8px; font-size:0.9rem; line-height:1.4;'>• {ins}</div>", unsafe_allow_html=True)
+            st.markdown(f"- {ins}")
         st.markdown("</div>", unsafe_allow_html=True)
 
     with col4:
         st.markdown("<div class='section-card'>", unsafe_allow_html=True)
         section_title("✅ Recommended Actions")
         actions = [
-            "Evaluasi & batasi kebijakan jam lembur, khususnya di divisi dengan beban kerja ekstrim.",
-            "Perkuat program onboarding & mentorship intensif untuk karyawan baru (tahun ke-0).",
-            "Kaji ulang skema insentif dan kepuasan kerja untuk posisi Sales Representative.",
-            "Jadwalkan sesi 1-on-1 intervensi khusus bagi 15 karyawan dengan skor risiko tertinggi.",
-            "Pantau berkala indikator Work-Life Balance sebagai early warning system HR.",
+            "Audit & batasi jam lembur, terutama di tim/departemen dengan beban kerja tinggi.",
+            "Perkuat program onboarding & mentoring untuk karyawan baru (tenure 0-1 tahun).",
+            "Evaluasi ulang kompensasi & jenjang karier untuk role Sales Representative.",
+            "Lakukan 1-on-1 check-in rutin untuk karyawan dengan skor risiko attrition tinggi.",
+            "Pantau skor work-life balance & job satisfaction secara berkala sebagai early warning.",
         ]
         for i, act in enumerate(actions, 1):
-            st.markdown(f"<div style='margin-bottom:8px; font-size:0.9rem; line-height:1.4;'><b>{i}.</b> {act}</div>", unsafe_allow_html=True)
+            st.markdown(f"**{i}.** {act}")
         st.markdown("</div>", unsafe_allow_html=True)
 
-    with st.expander("Lihat Parameter & Detail Evaluasi Model"):
-        st.write("**Best Parameters (GridSearchCV):**", model_bundle["best_params"])
-        st.write("**Confusion Matrix (Test Set):**")
+    with st.expander("Lihat Parameter & Detail Model"):
+        st.write("Best params (GridSearchCV):", model_bundle["best_params"])
+        st.write("Confusion Matrix (test set):")
         cm = model_bundle["confusion_matrix"]
         cm_df = pd.DataFrame(
             cm,
