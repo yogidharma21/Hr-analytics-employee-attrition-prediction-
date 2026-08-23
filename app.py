@@ -31,13 +31,13 @@ RANDOM_STATE = 42
 # Palette — kept deliberately small & non-clashing.
 # Navy/slate for structure, one blue (retain) + one amber (risk) as the only accent pair.
 # ------------------------------------------------------------------------------------
-C_BG = "#F4F6FA"
+C_BG = "#FFFFFF"
 C_SURFACE = "#FFFFFF"
-C_SIDEBAR = "#111827"
-C_SIDEBAR_MUTED = "#9CA3AF"
-C_TEXT = "#1F2933"
-C_TEXT_MUTED = "#6B7280"
-C_BORDER = "#E5E7EB"
+C_SIDEBAR = "#FFFFFF"
+C_SIDEBAR_MUTED = "#000000"
+C_TEXT = "#000000"
+C_TEXT_MUTED = "#000000"
+C_BORDER = "#D1D5DB"
 C_STAY = "#3B6FA0"     # muted blue  — "bertahan"
 C_LEAVE = "#E08A3C"    # muted amber — "keluar / risiko"
 C_STAY_SOFT = "#DCE6F1"
