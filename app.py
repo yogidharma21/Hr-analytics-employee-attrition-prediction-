@@ -1,1919 +1,688 @@
+"""
+HR Analytics & Employee Attrition Dashboard
+Portfolio project — companion Streamlit app for the analysis notebook.
+"""
+
+import warnings
+
 import numpy as np
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 import streamlit as st
+from sklearn.compose import ColumnTransformer
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import (accuracy_score, confusion_matrix, f1_score,
+                              precision_score, recall_score, roc_auc_score)
+from sklearn.model_selection import GridSearchCV, StratifiedKFold, train_test_split
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
+
+warnings.filterwarnings("ignore")
+
+DATA_URL = (
+    "https://raw.githubusercontent.com/dicodingacademy/dicoding_dataset/"
+    "refs/heads/main/employee/employee_data.csv"
+)
+RANDOM_STATE = 42
+
+# ------------------------------------------------------------------------------------
+# Palette — kept deliberately small & non-clashing.
+# Navy/slate for structure, one blue (retain) + one amber (risk) as the only accent pair.
+# ------------------------------------------------------------------------------------
+C_BG = "#F4F6FA"
+C_SURFACE = "#FFFFFF"
+C_SIDEBAR = "#111827"
+C_SIDEBAR_MUTED = "#9CA3AF"
+C_TEXT = "#1F2933"
+C_TEXT_MUTED = "#6B7280"
+C_BORDER = "#E5E7EB"
+C_STAY = "#3B6FA0"     # muted blue  — "bertahan"
+C_LEAVE = "#E08A3C"    # muted amber — "keluar / risiko"
+C_STAY_SOFT = "#DCE6F1"
+C_LEAVE_SOFT = "#FBE6D2"
+C_ACCENT_GOOD = "#2F9E64"
+C_ACCENT_BAD = "#D65A5A"
+
+PLOTLY_TEMPLATE = "plotly_white"
 
 
-# ============================================================
-# CONFIG
-# ============================================================
-
+# ======================================================================================
+# PAGE CONFIG + GLOBAL CSS
+# ======================================================================================
 st.set_page_config(
-    page_title="HR Analytics Dashboard",
+    page_title="HR Attrition Intelligence",
     page_icon="👥",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-DATA_URL = (
-    "https://raw.githubusercontent.com/dicodingacademy/"
-    "dicoding_dataset/refs/heads/main/employee/employee_data.csv"
-)
-
-FILTER_COLUMNS = [
-    "Department",
-    "JobRole",
-    "OverTime",
-    "Gender",
-    "MaritalStatus",
-    "BusinessTravel",
-]
-
-TENURE_BINS = [-1, 0, 3, 6, 10, 100]
-
-TENURE_LABELS = [
-    "Baru (0 Tahun)",
-    "1-3 Tahun",
-    "4-6 Tahun",
-    "7-10 Tahun",
-    "Lebih dari 10 Tahun",
-]
-
-PRIMARY_COLOR = "#2563EB"
-PRIMARY_DARK = "#1D4ED8"
-ACCENT_COLOR = "#F97316"
-DANGER_COLOR = "#EF4444"
-SUCCESS_COLOR = "#10B981"
-WARNING_COLOR = "#F59E0B"
-NEUTRAL_COLOR = "#94A3B8"
-
-DARK = "#0F172A"
-TEXT = "#334155"
-MUTED = "#64748B"
-BORDER = "#E2E8F0"
-SURFACE = "#FFFFFF"
-BACKGROUND = "#F8FAFC"
-
-
-# ============================================================
-# PROFESSIONAL UI
-# ============================================================
-
 st.markdown(
     f"""
     <style>
-
-    /* ========================================================
-       GLOBAL
-       ======================================================== */
-
-    .stApp {{
-        background: {BACKGROUND};
-        color: {TEXT};
-    }}
-
-    .block-container {{
-        max-width: 1480px;
-        padding-top: 1.6rem;
-        padding-bottom: 2.5rem;
-        padding-left: 2.2rem;
-        padding-right: 2.2rem;
-    }}
-
-    h1, h2, h3, h4 {{
-        color: {DARK} !important;
-        font-weight: 750 !important;
-        letter-spacing: -0.025em;
-    }}
-
-    h1 {{
-        font-size: 2rem !important;
-        margin-bottom: 0.15rem !important;
-    }}
-
-    h2 {{
-        font-size: 1.3rem !important;
-    }}
-
-    h3 {{
-        font-size: 1.05rem !important;
-    }}
-
-    p {{
-        color: {TEXT};
-    }}
-
-    hr {{
-        border: 0 !important;
-        border-top: 1px solid {BORDER} !important;
-        margin: 1.35rem 0 !important;
-    }}
-
-
-    /* ========================================================
-       TOP PAGE HEADER
-       ======================================================== */
-
-    .page-header {{
-        background:
-            linear-gradient(
-                135deg,
-                #FFFFFF 0%,
-                #F8FAFF 65%,
-                #EFF6FF 100%
-            );
-
-        border: 1px solid {BORDER};
-        border-radius: 18px;
-
-        padding: 24px 28px;
-
-        margin-bottom: 20px;
-
-        box-shadow:
-            0 8px 24px rgba(15, 23, 42, 0.045);
-    }}
-
-    .page-header-title {{
-        color: {DARK};
-        font-size: 1.9rem;
-        line-height: 1.2;
-        font-weight: 800;
-        letter-spacing: -0.035em;
-    }}
-
-    .page-header-subtitle {{
-        color: {MUTED};
-        font-size: 0.9rem;
-        line-height: 1.55;
-        margin-top: 6px;
-    }}
-
-
-    /* ========================================================
-       SIDEBAR
-       ======================================================== */
-
-    section[data-testid="stSidebar"] {{
-        background:
-            linear-gradient(
-                180deg,
-                #0F172A 0%,
-                #111827 100%
-            ) !important;
-
-        border-right: 1px solid #1E293B;
-    }}
-
-    section[data-testid="stSidebar"] > div {{
-        padding-top: 1.2rem;
-    }}
-
-    section[data-testid="stSidebar"] * {{
-        color: #E2E8F0;
-    }}
-
-    section[data-testid="stSidebar"] hr {{
-        border-color: #334155 !important;
-        margin: 0.9rem 0 !important;
-    }}
-
-    section[data-testid="stSidebar"] label {{
-        color: #CBD5E1 !important;
-        font-size: 0.8rem !important;
-        font-weight: 600 !important;
-    }}
-
-    section[data-testid="stSidebar"] div[data-baseweb="select"] {{
-        background: #FFFFFF !important;
-        border-radius: 9px !important;
-        border: none !important;
-    }}
-
-    section[data-testid="stSidebar"]
-    div[data-baseweb="select"] * {{
-        color: #0F172A !important;
-    }}
-
-    section[data-testid="stSidebar"] input {{
-        color: #0F172A !important;
-    }}
-
-    .sidebar-brand {{
-        padding: 4px 2px 14px 2px;
-    }}
-
-    .sidebar-brand-title {{
-        color: #FFFFFF;
-        font-size: 1.28rem;
-        font-weight: 800;
-        letter-spacing: -0.02em;
-    }}
-
-    .sidebar-brand-subtitle {{
-        color: #94A3B8;
-        font-size: 0.74rem;
-        margin-top: 3px;
-    }}
-
-    .sidebar-label {{
-        color: #64748B;
-        font-size: 0.68rem;
-        text-transform: uppercase;
-        letter-spacing: 0.1em;
-        font-weight: 700;
-        margin-bottom: 8px;
-    }}
-
-
-    /* ========================================================
-       KPI CARDS
-       ======================================================== */
-
-    div[data-testid="stMetric"] {{
-        background: {SURFACE} !important;
-        border: 1px solid {BORDER} !important;
-        border-radius: 14px !important;
-
-        padding: 16px 18px 14px 18px !important;
-
-        min-height: 104px;
-
-        box-shadow:
-            0 4px 14px rgba(15, 23, 42, 0.035) !important;
-
-        transition:
-            transform 0.15s ease,
-            box-shadow 0.15s ease;
-    }}
-
-    div[data-testid="stMetric"]:hover {{
-        transform: translateY(-2px);
-
-        box-shadow:
-            0 8px 22px rgba(15, 23, 42, 0.065) !important;
-    }}
-
-    div[data-testid="stMetricLabel"] {{
-        color: {MUTED} !important;
-        font-size: 0.76rem !important;
-        font-weight: 650 !important;
-    }}
-
-    div[data-testid="stMetricValue"] {{
-        color: {DARK} !important;
-        font-size: 1.55rem !important;
-        font-weight: 800 !important;
-        letter-spacing: -0.03em;
-    }}
-
-    div[data-testid="stMetricDelta"] {{
-        font-size: 0.76rem !important;
-    }}
-
-
-    /* ========================================================
-       SECTION LABEL
-       ======================================================== */
-
-    .section-label {{
-        color: {DARK};
-        font-size: 1rem;
-        font-weight: 750;
-        margin: 4px 0 10px 0;
-    }}
-
-    .section-caption {{
-        color: {MUTED};
-        font-size: 0.8rem;
-        margin-bottom: 12px;
-    }}
-
-
-    /* ========================================================
-       PLOTLY CARDS
-       ======================================================== */
-
-    div[data-testid="stPlotlyChart"] {{
-        background: {SURFACE};
-        border: 1px solid {BORDER};
-        border-radius: 14px;
-        padding: 6px 8px 2px 8px;
-
-        box-shadow:
-            0 4px 14px rgba(15, 23, 42, 0.035);
-    }}
-
-
-    /* ========================================================
-       INSIGHT CARDS
-       ======================================================== */
-
-    .insight-box {{
-        position: relative;
-
-        background: {SURFACE};
-        border: 1px solid {BORDER};
-        border-radius: 12px;
-
-        padding: 14px 16px 14px 18px;
-        margin-bottom: 10px;
-
-        color: {TEXT};
-        font-size: 0.86rem;
-        line-height: 1.5;
-
-        box-shadow:
-            0 3px 10px rgba(15, 23, 42, 0.03);
-    }}
-
-    .insight-box::before {{
-        content: "";
-        position: absolute;
-        left: 0;
-        top: 12px;
-        bottom: 12px;
-        width: 3px;
-
-        background: {PRIMARY_COLOR};
-        border-radius: 3px;
-    }}
-
-    .insight-box b {{
-        color: {DARK};
-        font-weight: 750;
-    }}
-
-
-    /* ========================================================
-       PRIORITY CARDS
-       ======================================================== */
-
-    .priority-high {{
-        background: #FFF8F5;
-        border: 1px solid #FCE0D5;
-        border-radius: 12px;
-
-        padding: 14px 16px 14px 18px;
-        margin-bottom: 10px;
-
-        color: {TEXT};
-        line-height: 1.5;
-
-        box-shadow:
-            0 3px 10px rgba(15, 23, 42, 0.025);
-    }}
-
-    .priority-high b {{
-        color: #C2410C;
-    }}
-
-    .priority-medium {{
-        background: #FFFDF5;
-        border: 1px solid #F7E9B9;
-        border-radius: 12px;
-
-        padding: 14px 16px 14px 18px;
-        margin-bottom: 10px;
-
-        color: {TEXT};
-        line-height: 1.5;
-
-        box-shadow:
-            0 3px 10px rgba(15, 23, 42, 0.025);
-    }}
-
-    .priority-medium b {{
-        color: #A16207;
-    }}
-
-
-    /* ========================================================
-       TABS
-       ======================================================== */
-
-    div[data-baseweb="tab-list"] {{
-        gap: 4px;
-    }}
-
-    button[data-baseweb="tab"] {{
-        color: {MUTED} !important;
-        font-weight: 650 !important;
-        font-size: 0.84rem !important;
-
-        padding-left: 14px !important;
-        padding-right: 14px !important;
-    }}
-
-    button[data-baseweb="tab"][aria-selected="true"] {{
-        color: {DARK} !important;
-    }}
-
-
-    /* ========================================================
-       DATAFRAME
-       ======================================================== */
-
-    div[data-testid="stDataFrame"] {{
-        border: 1px solid {BORDER};
-        border-radius: 12px;
-        overflow: hidden;
-
-        box-shadow:
-            0 3px 10px rgba(15, 23, 42, 0.03);
-    }}
-
-
-    /* ========================================================
-       CAPTION
-       ======================================================== */
-
-    div[data-testid="stCaptionContainer"] {{
-        color: {MUTED} !important;
-        font-size: 0.76rem !important;
-    }}
-
-
-    /* ========================================================
-       ALERTS
-       ======================================================== */
-
-    div[data-testid="stAlert"] {{
-        border-radius: 10px !important;
-    }}
-
-
-    /* ========================================================
-       RESPONSIVE
-       ======================================================== */
-
-    @media (max-width: 900px) {{
-
-        .block-container {{
-            padding-left: 1rem;
-            padding-right: 1rem;
+        html, body, [class*="css"] {{
+            font-family: 'Inter', 'Segoe UI', sans-serif;
         }}
-
-        .page-header {{
-            padding: 20px;
+        .stApp {{
+            background-color: {C_BG};
         }}
-
-        .page-header-title {{
-            font-size: 1.55rem;
+        /* Sidebar */
+        section[data-testid="stSidebar"] {{
+            background-color: {C_SIDEBAR};
         }}
-    }}
-
+        section[data-testid="stSidebar"] * {{
+            color: {C_SIDEBAR_MUTED} !important;
+        }}
+        section[data-testid="stSidebar"] h1,
+        section[data-testid="stSidebar"] h2,
+        section[data-testid="stSidebar"] h3 {{
+            color: #FFFFFF !important;
+        }}
+        section[data-testid="stSidebar"] label {{
+            color: #E5E7EB !important;
+        }}
+        div[role="radiogroup"] label {{
+            padding: 6px 10px;
+            border-radius: 8px;
+        }}
+        /* Headings */
+        h1, h2, h3, h4 {{
+            color: {C_TEXT};
+            font-weight: 700;
+        }}
+        p, li, span, label {{
+            color: {C_TEXT};
+        }}
+        /* KPI card */
+        .kpi-card {{
+            background-color: {C_SURFACE};
+            border: 1px solid {C_BORDER};
+            border-radius: 14px;
+            padding: 18px 20px;
+            box-shadow: 0 1px 3px rgba(16, 24, 40, 0.04);
+        }}
+        .kpi-label {{
+            font-size: 0.78rem;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            text-transform: uppercase;
+            color: {C_TEXT_MUTED};
+            margin-bottom: 6px;
+        }}
+        .kpi-value {{
+            font-size: 1.9rem;
+            font-weight: 800;
+            color: {C_TEXT};
+            line-height: 1.1;
+        }}
+        .kpi-sub {{
+            font-size: 0.78rem;
+            color: {C_TEXT_MUTED};
+            margin-top: 4px;
+        }}
+        /* Section card wrapper */
+        .section-card {{
+            background-color: {C_SURFACE};
+            border: 1px solid {C_BORDER};
+            border-radius: 14px;
+            padding: 20px 22px;
+            margin-bottom: 18px;
+            box-shadow: 0 1px 3px rgba(16, 24, 40, 0.04);
+        }}
+        /* Badges */
+        .badge-risk {{
+            display: inline-block;
+            background-color: {C_LEAVE_SOFT};
+            color: #8A4A16;
+            font-weight: 700;
+            font-size: 0.75rem;
+            padding: 3px 10px;
+            border-radius: 999px;
+        }}
+        .badge-safe {{
+            display: inline-block;
+            background-color: {C_STAY_SOFT};
+            color: #1E3A5F;
+            font-weight: 700;
+            font-size: 0.75rem;
+            padding: 3px 10px;
+            border-radius: 999px;
+        }}
+        .insight-title {{
+            font-weight: 700;
+            font-size: 1rem;
+            color: {C_TEXT};
+            margin-bottom: 2px;
+        }}
+        .divider-line {{
+            border: none;
+            border-top: 1px solid {C_BORDER};
+            margin: 10px 0 18px 0;
+        }}
+        header[data-testid="stHeader"] {{
+            background-color: {C_BG};
+        }}
     </style>
     """,
     unsafe_allow_html=True,
 )
 
 
-# ============================================================
-# LOAD & CLEAN DATA
-# ============================================================
-
-@st.cache_data(show_spinner="Mengambil dan membersihkan data...")
+# ======================================================================================
+# DATA LOADING + FEATURE ENGINEERING  (mirrors the notebook exactly)
+# ======================================================================================
+@st.cache_data(show_spinner=False)
 def load_data():
-
     df = pd.read_csv(DATA_URL)
+    df_clean = df.drop(columns=["EmployeeCount", "StandardHours", "Over18"])
 
-    string_cols = df.select_dtypes(
-        include=["object", "string"]
-    ).columns
+    labeled = df_clean.dropna(subset=["Attrition"]).copy()
+    labeled["Attrition"] = labeled["Attrition"].astype(int)
 
-    for col in string_cols:
-        df[col] = (
-            df[col]
-            .astype(str)
-            .str.strip()
-        )
+    unlabeled = df_clean[df_clean["Attrition"].isna()].copy()
 
-    df = df.drop_duplicates()
+    return df, labeled, unlabeled
 
-    df = df.drop(
-        columns=[
-            "EmployeeCount",
-            "StandardHours",
-            "Over18",
-        ],
-        errors="ignore",
+
+def add_engineered_features(data):
+    data = data.copy()
+    bins = [-1, 0, 3, 6, 10, 100]
+    labels = ["Baru (0 Tahun)", "1-3 Tahun", "4-6 Tahun", "7-10 Tahun", "Lebih dari 10 Tahun"]
+    data["TenureGroup"] = pd.cut(data["YearsAtCompany"], bins=bins, labels=labels)
+    data["IncomeGroup"] = pd.qcut(
+        data["MonthlyIncome"], q=4, labels=["Q1 (Terendah)", "Q2", "Q3", "Q4 (Tertinggi)"]
     )
-
-    df["Attrition"] = pd.to_numeric(
-        df["Attrition"],
-        errors="coerce"
-    )
-
-    df["TenureGroup"] = pd.cut(
-        df["YearsAtCompany"],
-        bins=TENURE_BINS,
-        labels=TENURE_LABELS,
-    )
-
-    df["IncomeGroup"] = pd.qcut(
-        df["MonthlyIncome"],
-        q=4,
-        labels=[
-            "Q1 (Terendah)",
-            "Q2",
-            "Q3",
-            "Q4 (Tertinggi)",
-        ],
-        duplicates="drop",
-    )
-
-    satisfaction_cols = [
-        "JobSatisfaction",
-        "EnvironmentSatisfaction",
-        "RelationshipSatisfaction",
-    ]
-
-    df["AvgSatisfaction"] = df[
-        satisfaction_cols
+    data["AvgSatisfaction"] = data[
+        ["JobSatisfaction", "EnvironmentSatisfaction", "RelationshipSatisfaction"]
     ].mean(axis=1)
+    return data
 
-    df["StatusLabel"] = np.select(
-        [
-            df["Attrition"] == 0,
-            df["Attrition"] == 1,
-        ],
-        [
-            "Bertahan",
-            "Keluar",
-        ],
-        default="Belum Diketahui",
+
+@st.cache_resource(show_spinner="Melatih model prediksi attrition...")
+def train_model(labeled: pd.DataFrame):
+    identifier_col, target_col = "EmployeeId", "Attrition"
+    feature_cols = [c for c in labeled.columns if c not in [identifier_col, target_col]]
+
+    X = labeled[feature_cols]
+    y = labeled[target_col]
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=RANDOM_STATE, stratify=y
     )
 
-    return df
+    categorical_features = X.select_dtypes(include="object").columns.tolist()
+    numerical_features = X.select_dtypes(exclude="object").columns.tolist()
 
-
-try:
-    data = load_data()
-
-except Exception as e:
-
-    st.error(
-        "Gagal mengambil dataset dari sumber online. "
-        "Silakan cek koneksi internet atau coba lagi."
+    preprocessor = ColumnTransformer(
+        transformers=[
+            ("num", StandardScaler(), numerical_features),
+            ("cat", OneHotEncoder(handle_unknown="ignore"), categorical_features),
+        ]
     )
 
-    st.exception(e)
-    st.stop()
-
-
-# ============================================================
-# HELPERS
-# ============================================================
-
-def get_labeled(df):
-
-    return df[
-        df["Attrition"].notna()
-    ].copy()
-
-
-def safe_attrition_rate(df):
-
-    if df.empty:
-        return np.nan
-
-    return (
-        df["Attrition"].mean()
-        * 100
-    )
-
-
-def attrition_rate_by(
-    df_labeled,
-    col,
-):
-
-    if (
-        df_labeled.empty
-        or col not in df_labeled.columns
-    ):
-
-        return pd.DataFrame(
-            columns=[
-                col,
-                "AttritionRate",
-                "Count",
-            ]
-        )
-
-    result = (
-        df_labeled
-        .groupby(
-            col,
-            observed=True
-        )["Attrition"]
-        .agg(
-            AttritionRate="mean",
-            Count="count"
-        )
-        .reset_index()
-    )
-
-    result["AttritionRate"] = (
-        result["AttritionRate"]
-        * 100
-    ).round(1)
-
-    return result.sort_values(
-        "AttritionRate",
-        ascending=False
-    )
-
-
-def format_thousand(value):
-
-    if pd.isna(value):
-        return "-"
-
-    return f"{value:,.0f}"
-
-
-def empty_state(
-    message="Tidak ada data untuk filter ini."
-):
-
-    st.info(message)
-
-
-def style_chart(
-    fig,
-    height=None,
-):
-
-    fig.update_layout(
-        template="plotly_white",
-        paper_bgcolor="white",
-        plot_bgcolor="white",
-
-        font=dict(
-            family="Arial, sans-serif",
-            color=DARK,
-        ),
-
-        title=dict(
-            font=dict(
-                size=15,
-                color=DARK,
+    pipe = Pipeline(
+        steps=[
+            ("preprocessor", preprocessor),
+            (
+                "classifier",
+                LogisticRegression(
+                    max_iter=2000, random_state=RANDOM_STATE, class_weight="balanced"
+                ),
             ),
-            x=0.01,
-            xanchor="left",
-        ),
-
-        margin=dict(
-            l=12,
-            r=16,
-            t=54,
-            b=14,
-        ),
-
-        hoverlabel=dict(
-            bgcolor="white",
-            font_color=DARK,
-        ),
-
-        legend=dict(
-            bgcolor="rgba(255,255,255,0)",
-        ),
+        ]
     )
 
-    if height:
-        fig.update_layout(
-            height=height
-        )
+    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=RANDOM_STATE)
+    grid = GridSearchCV(
+        pipe, {"classifier__C": [0.01, 0.1, 1, 10]}, cv=cv, scoring="f1", n_jobs=-1
+    )
+    grid.fit(X_train, y_train)
+    final_model = grid.best_estimator_
 
-    fig.update_xaxes(
-        showgrid=True,
-        gridcolor="#E5E7EB",
-        zeroline=False,
-        linecolor="#E5E7EB",
+    y_pred = final_model.predict(X_test)
+    y_proba = final_model.predict_proba(X_test)[:, 1]
+
+    metrics = {
+        "Accuracy": accuracy_score(y_test, y_pred),
+        "Precision": precision_score(y_test, y_pred),
+        "Recall": recall_score(y_test, y_pred),
+        "F1": f1_score(y_test, y_pred),
+        "ROC-AUC": roc_auc_score(y_test, y_proba),
+    }
+    cm = confusion_matrix(y_test, y_pred)
+
+    # Feature coefficients for interpretation
+    cat_names = list(
+        final_model.named_steps["preprocessor"]
+        .named_transformers_["cat"]
+        .get_feature_names_out(categorical_features)
+    )
+    all_feature_names = numerical_features + cat_names
+    coefs = final_model.named_steps["classifier"].coef_[0]
+    coef_df = pd.DataFrame({"Feature": all_feature_names, "Coefficient": coefs})
+    coef_df["AbsCoefficient"] = coef_df["Coefficient"].abs()
+    coef_df = coef_df.sort_values("AbsCoefficient", ascending=False)
+
+    return {
+        "model": final_model,
+        "feature_cols": feature_cols,
+        "metrics": metrics,
+        "confusion_matrix": cm,
+        "coef_df": coef_df,
+        "best_params": grid.best_params_,
+    }
+
+
+@st.cache_data(show_spinner=False)
+def score_unlabeled(_model, feature_cols, unlabeled: pd.DataFrame):
+    X_unlabeled = unlabeled[feature_cols]
+    scores = _model.predict_proba(X_unlabeled)[:, 1]
+    risk_df = unlabeled[
+        ["EmployeeId", "Department", "JobRole", "OverTime", "YearsAtCompany", "MonthlyIncome"]
+    ].copy()
+    risk_df["AttritionRiskScore"] = (scores * 100).round(1)
+    risk_df = risk_df.sort_values("AttritionRiskScore", ascending=False).reset_index(drop=True)
+    return risk_df
+
+
+# ======================================================================================
+# SMALL UI HELPERS
+# ======================================================================================
+def kpi_card(label, value, sub=""):
+    st.markdown(
+        f"""
+        <div class="kpi-card">
+            <div class="kpi-label">{label}</div>
+            <div class="kpi-value">{value}</div>
+            <div class="kpi-sub">{sub}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
-    fig.update_yaxes(
-        showgrid=False,
-        zeroline=False,
-        linecolor="#E5E7EB",
-    )
 
+def section_title(title, subtitle=None):
+    st.markdown(f"### {title}")
+    if subtitle:
+        st.markdown(f"<span style='color:{C_TEXT_MUTED}; font-size:0.9rem;'>{subtitle}</span>", unsafe_allow_html=True)
+    st.markdown("<hr class='divider-line'/>", unsafe_allow_html=True)
+
+
+def attrition_rate_by(df, col, order=None):
+    t = df.groupby(col, observed=True)["Attrition"].agg(rate="mean", count="count")
+    t["rate"] = (t["rate"] * 100).round(1)
+    if order is not None:
+        t = t.reindex(order)
+    else:
+        t = t.sort_values("rate", ascending=False)
+    return t.reset_index()
+
+
+def bar_rate_chart(data, x_col, overall_rate, title, horizontal=False):
+    orientation = "h" if horizontal else "v"
+    x_arg, y_arg = ("rate", x_col) if horizontal else (x_col, "rate")
+    fig = px.bar(
+        data,
+        x=x_arg,
+        y=y_arg,
+        orientation=orientation,
+        color="rate",
+        color_continuous_scale=[C_STAY, C_LEAVE],
+        text="rate",
+    )
+    fig.update_traces(texttemplate="%{text}%", textposition="outside")
+    if horizontal:
+        fig.add_vline(x=overall_rate, line_dash="dash", line_color=C_TEXT_MUTED)
+    else:
+        fig.add_hline(y=overall_rate, line_dash="dash", line_color=C_TEXT_MUTED)
+    fig.update_layout(
+        template=PLOTLY_TEMPLATE,
+        title=title,
+        showlegend=False,
+        coloraxis_showscale=False,
+        margin=dict(l=10, r=10, t=50, b=10),
+        height=380,
+        plot_bgcolor=C_SURFACE,
+        paper_bgcolor=C_SURFACE,
+    )
     return fig
 
 
-def page_header(
-    title,
-    subtitle,
-):
+# ======================================================================================
+# LOAD DATA + MODEL
+# ======================================================================================
+raw_df, labeled, unlabeled = load_data()
+labeled_fe = add_engineered_features(labeled)
+overall_rate = labeled_fe["Attrition"].mean() * 100
 
+model_bundle = train_model(labeled)
+risk_df = score_unlabeled(model_bundle["model"], model_bundle["feature_cols"], unlabeled)
+
+
+# ======================================================================================
+# SIDEBAR NAVIGATION
+# ======================================================================================
+with st.sidebar:
+    st.markdown("## 👥 HR Attrition\n### Intelligence Dashboard")
+    st.markdown(
+        "<span style='font-size:0.85rem;'>Analisis workforce & prediksi risiko attrition karyawan.</span>",
+        unsafe_allow_html=True,
+    )
+    st.markdown("---")
+    page = st.radio(
+        "Navigasi",
+        [
+            "📊 Workforce Overview",
+            "📉 Attrition Analysis",
+            "🧑‍💼 Employee Profile",
+            "🎯 HR Action Center",
+        ],
+        label_visibility="collapsed",
+    )
+    st.markdown("---")
     st.markdown(
         f"""
-        <div class="page-header">
-            <div class="page-header-title">
-                {title}
-            </div>
-
-            <div class="page-header-subtitle">
-                {subtitle}
-            </div>
-        </div>
+        <span style='font-size:0.78rem;'>
+        Total data: {raw_df.shape[0]} karyawan<br/>
+        Berlabel: {labeled.shape[0]} • Belum berlabel: {unlabeled.shape[0]}<br/>
+        Model: Logistic Regression (tuned)<br/>
+        ROC-AUC test: {model_bundle['metrics']['ROC-AUC']:.3f}
+        </span>
         """,
         unsafe_allow_html=True,
     )
 
 
-def bar_attrition_rate(
-    rate_df,
-    category_col,
-    title,
-    order=None,
-):
-
-    if rate_df.empty:
-
-        empty_state()
-        return
-
-    plot_df = rate_df.copy()
-
-    if order is not None:
-
-        plot_df[category_col] = pd.Categorical(
-            plot_df[category_col],
-            categories=order,
-            ordered=True,
-        )
-
-        plot_df = plot_df.sort_values(
-            category_col
-        )
-
-    else:
-
-        plot_df = plot_df.sort_values(
-            "AttritionRate",
-            ascending=True,
-        )
-
-    fig = px.bar(
-        plot_df,
-        x="AttritionRate",
-        y=category_col,
-
-        orientation="h",
-
-        text=(
-            plot_df["AttritionRate"]
-            .astype(str)
-            + "%"
-        ),
-
-        color_discrete_sequence=[
-            ACCENT_COLOR
-        ],
-
-        title=title,
-
-        hover_data={
-            "Count": True
-        },
-
-        labels={
-            "AttritionRate":
-                "Attrition Rate (%)",
-            category_col:
-                "",
-            "Count":
-                "Employees",
-        },
-    )
-
-    fig.update_traces(
-        textposition="outside",
-        cliponaxis=False,
-    )
-
-    style_chart(
-        fig,
-        height=max(
-            280,
-            40 * len(plot_df),
-        ),
-    )
-
-    fig.update_layout(
-        xaxis_title="Attrition Rate (%)",
-        yaxis_title=None,
-    )
-
-    st.plotly_chart(
-        fig,
-        use_container_width=True,
-    )
-
-
-def headcount_chart(
-    df,
-    column,
-    title,
-):
-
-    result = (
-        df[column]
-        .value_counts()
-        .reset_index()
-    )
-
-    result.columns = [
-        column,
-        "Employees",
-    ]
-
-    result = result.sort_values(
-        "Employees"
-    )
-
-    fig = px.bar(
-        result,
-
-        x="Employees",
-        y=column,
-
-        orientation="h",
-
-        text="Employees",
-
-        color_discrete_sequence=[
-            PRIMARY_COLOR
-        ],
-
-        title=title,
-    )
-
-    fig.update_traces(
-        textposition="outside",
-        cliponaxis=False,
-    )
-
-    style_chart(fig)
-
-    fig.update_layout(
-        yaxis_title=None
-    )
-
-    st.plotly_chart(
-        fig,
-        use_container_width=True,
-    )
-
-
-# ============================================================
-# SIDEBAR
-# ============================================================
-
-st.sidebar.markdown(
-    """
-    <div class="sidebar-brand">
-
-        <div class="sidebar-brand-title">
-            👥 HR Analytics
-        </div>
-
-        <div class="sidebar-brand-subtitle">
-            Employee Attrition Dashboard
-        </div>
-
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
-st.sidebar.markdown(
-    '<div class="sidebar-label">Navigation</div>',
-    unsafe_allow_html=True,
-)
-
-page = st.sidebar.radio(
-    "Navigation",
-    [
-        "Overview",
-        "Attrition Analysis",
-        "Employee Profile",
-        "HR Action",
-    ],
-    label_visibility="collapsed",
-)
-
-st.sidebar.divider()
-
-st.sidebar.markdown(
-    '<div class="sidebar-label">Filters</div>',
-    unsafe_allow_html=True,
-)
-
-filter_values = {}
-
-for col in FILTER_COLUMNS:
-
-    if col in data.columns:
-
-        options = sorted(
-            data[col]
-            .dropna()
-            .unique()
-            .tolist()
-        )
-
-        selected = st.sidebar.multiselect(
-            col,
-            options,
-            default=[],
-        )
-
-        if selected:
-
-            filter_values[col] = selected
-
-
-def apply_filters(df):
-
-    filtered = df.copy()
-
-    for col, values in filter_values.items():
-
-        filtered = filtered[
-            filtered[col].isin(values)
-        ]
-
-    return filtered
-
-
-data_f = apply_filters(data)
-labeled_f = get_labeled(data_f)
-
-if data_f.empty:
-
-    st.warning(
-        "Tidak ada karyawan yang cocok dengan filter."
-    )
-
-    st.stop()
-
-
-# ============================================================
-# OVERVIEW
-# ============================================================
-
-if page == "Overview":
-
-    page_header(
-        "HR Analytics Dashboard",
-        "Workforce overview, employee attrition patterns, and HR priorities",
-    )
-
-    total_employees = len(data_f)
-
-    n_labeled = len(labeled_f)
-
-    n_unlabeled = (
-        total_employees
-        - n_labeled
-    )
-
-    attrition_rate = safe_attrition_rate(
-        labeled_f
-    )
-
-    col1, col2, col3, col4, col5 = st.columns(5)
-
-    col1.metric(
-        "Total Employees",
-        format_thousand(
-            total_employees
-        ),
-    )
-
-    col2.metric(
-        "Attrition Rate",
-        (
-            f"{attrition_rate:.1f}%"
-            if not pd.isna(
-                attrition_rate
-            )
-            else "-"
-        ),
-    )
-
-    col3.metric(
-        "Average Age",
-        f"{data_f['Age'].mean():.1f} yrs",
-    )
-
-    col4.metric(
-        "Average Tenure",
-        f"{data_f['YearsAtCompany'].mean():.1f} yrs",
-    )
-
-    col5.metric(
-        "Average Monthly Income",
-        format_thousand(
-            data_f["MonthlyIncome"].mean()
-        ),
-    )
-
-    st.caption(
-        f"Labeled Employees: "
-        f"{format_thousand(n_labeled)}"
-        f"  •  "
-        f"Unlabeled Employees: "
-        f"{format_thousand(n_unlabeled)}"
-        f"  •  "
-        "Attrition Rate dihitung dari data berlabel."
-    )
-
-    st.divider()
-
-    st.markdown(
-        '<div class="section-label">Workforce Distribution</div>',
-        unsafe_allow_html=True,
-    )
-
-    c1, c2 = st.columns(2)
-
+# ======================================================================================
+# PAGE 1 — WORKFORCE OVERVIEW
+# ======================================================================================
+if page == "📊 Workforce Overview":
+    st.title("Workforce Overview")
+    st.caption("Gambaran umum komposisi karyawan berdasarkan data yang berlabel.")
+
+    c1, c2, c3, c4 = st.columns(4)
     with c1:
-
-        headcount_chart(
-            data_f,
-            "Department",
-            "Employees by Department",
-        )
-
+        kpi_card("Total Employees", f"{labeled_fe.shape[0]:,}", "Karyawan berlabel")
     with c2:
-
-        headcount_chart(
-            data_f,
-            "JobRole",
-            "Employees by Job Role",
-        )
-
-    c3, c4 = st.columns(2)
-
+        kpi_card("Attrition Rate", f"{overall_rate:.1f}%", "Rata-rata perusahaan")
     with c3:
-
-        status_counts = (
-            data_f[
-                "StatusLabel"
-            ]
-            .value_counts()
-            .reset_index()
-        )
-
-        status_counts.columns = [
-            "Status",
-            "Employees",
-        ]
-
-        fig = px.pie(
-            status_counts,
-
-            names="Status",
-            values="Employees",
-
-            color="Status",
-
-            color_discrete_map={
-                "Bertahan":
-                    PRIMARY_COLOR,
-
-                "Keluar":
-                    ACCENT_COLOR,
-
-                "Belum Diketahui":
-                    NEUTRAL_COLOR,
-            },
-
-            title="Employee Status",
-
-            hole=0.52,
-        )
-
-        fig.update_traces(
-            textinfo="percent+label",
-            textposition="outside",
-            pull=[
-                0.02
-                if x == "Keluar"
-                else 0
-                for x in status_counts["Status"]
-            ],
-        )
-
-        style_chart(fig)
-
-        st.plotly_chart(
-            fig,
-            use_container_width=True,
-        )
-
+        kpi_card("Avg. Tenure", f"{labeled_fe['YearsAtCompany'].mean():.1f} thn", "Masa kerja rata-rata")
     with c4:
+        kpi_card("Avg. Monthly Income", f"${labeled_fe['MonthlyIncome'].mean():,.0f}", "Pendapatan rata-rata")
 
-        tenure_rate = attrition_rate_by(
-            labeled_f,
-            "TenureGroup",
+    st.write("")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("<div class='section-card'>", unsafe_allow_html=True)
+        dept_counts = labeled_fe["Department"].value_counts().reset_index()
+        dept_counts.columns = ["Department", "Count"]
+        fig = px.bar(
+            dept_counts, x="Count", y="Department", orientation="h",
+            color_discrete_sequence=[C_STAY], text="Count",
         )
+        fig.update_traces(textposition="outside")
+        fig.update_layout(template=PLOTLY_TEMPLATE, title="Jumlah Karyawan per Departemen",
+                           margin=dict(l=10, r=10, t=50, b=10), height=340,
+                           plot_bgcolor=C_SURFACE, paper_bgcolor=C_SURFACE)
+        st.plotly_chart(fig, use_container_width=True)
+        st.markdown("</div>", unsafe_allow_html=True)
 
-        bar_attrition_rate(
-            tenure_rate,
-            "TenureGroup",
-            "Attrition Rate by Tenure Group",
-            order=TENURE_LABELS,
+    with col2:
+        st.markdown("<div class='section-card'>", unsafe_allow_html=True)
+        role_counts = labeled_fe["JobRole"].value_counts().reset_index()
+        role_counts.columns = ["JobRole", "Count"]
+        fig = px.bar(
+            role_counts, x="Count", y="JobRole", orientation="h",
+            color_discrete_sequence=[C_STAY], text="Count",
         )
-
-    ot_rate = attrition_rate_by(
-        labeled_f,
-        "OverTime",
-    )
-
-    bar_attrition_rate(
-        ot_rate,
-        "OverTime",
-        "Attrition Rate by OverTime",
-    )
-
-    st.divider()
-
-    st.markdown(
-        '<div class="section-label">Key Takeaways</div>',
-        unsafe_allow_html=True,
-    )
-
-    st.markdown(
-        """
-        <div class="insight-box">
-            <b>OverTime</b><br>
-            Karyawan yang sering lembur berkaitan dengan attrition
-            rate yang lebih tinggi.
-        </div>
-
-        <div class="insight-box">
-            <b>Sales Representative</b><br>
-            Sales Representative merupakan salah satu job role
-            dengan attrition rate tertinggi.
-        </div>
-
-        <div class="insight-box">
-            <b>Early Tenure</b><br>
-            Attrition lebih tinggi pada karyawan dengan masa kerja pendek.
-        </div>
-
-        <div class="insight-box">
-            <b>Sales Department</b><br>
-            Sales menunjukkan attrition rate tertinggi antar department.
-        </div>
-
-        <div class="insight-box">
-            <b>Work-Life Balance</b><br>
-            Work-life balance rendah menunjukkan pola attrition
-            yang lebih tinggi.
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
-# ============================================================
-# ATTRITION ANALYSIS
-# ============================================================
-
-elif page == "Attrition Analysis":
-
-    page_header(
-        "Employee Attrition Analysis",
-        "Melihat kelompok karyawan dengan attrition rate lebih tinggi",
-    )
-
-    if labeled_f.empty:
-
-        empty_state(
-            "Tidak ada karyawan berlabel pada filter ini."
-        )
-
-        st.stop()
-
-    overall_rate = safe_attrition_rate(
-        labeled_f
-    )
-
-    st.metric(
-        "Overall Attrition Rate",
-        f"{overall_rate:.1f}%",
-    )
-
-    st.divider()
-
-    tab1, tab2 = st.tabs(
-        [
-            "Attrition Rate",
-            "Age vs Income",
-        ]
-    )
-
-    with tab1:
-
-        c1, c2 = st.columns(2)
-
-        with c1:
-
-            bar_attrition_rate(
-                attrition_rate_by(
-                    labeled_f,
-                    "Department",
-                ),
-                "Department",
-                "Attrition Rate by Department",
-            )
-
-        with c2:
-
-            bar_attrition_rate(
-                attrition_rate_by(
-                    labeled_f,
-                    "JobRole",
-                ),
-                "JobRole",
-                "Attrition Rate by Job Role",
-            )
-
-        c3, c4 = st.columns(2)
-
-        with c3:
-
-            bar_attrition_rate(
-                attrition_rate_by(
-                    labeled_f,
-                    "OverTime",
-                ),
-                "OverTime",
-                "Attrition Rate by OverTime",
-            )
-
-        with c4:
-
-            bar_attrition_rate(
-                attrition_rate_by(
-                    labeled_f,
-                    "BusinessTravel",
-                ),
-                "BusinessTravel",
-                "Attrition Rate by Business Travel",
-            )
-
-        c5, c6 = st.columns(2)
-
-        with c5:
-
-            bar_attrition_rate(
-                attrition_rate_by(
-                    labeled_f,
-                    "TenureGroup",
-                ),
-                "TenureGroup",
-                "Attrition Rate by Tenure Group",
-                order=TENURE_LABELS,
-            )
-
-        with c6:
-
-            bar_attrition_rate(
-                attrition_rate_by(
-                    labeled_f,
-                    "WorkLifeBalance",
-                ),
-                "WorkLifeBalance",
-                "Attrition Rate by Work-Life Balance",
-            )
-
-        c7, c8 = st.columns(2)
-
-        with c7:
-
-            bar_attrition_rate(
-                attrition_rate_by(
-                    labeled_f,
-                    "IncomeGroup",
-                ),
-                "IncomeGroup",
-                "Attrition Rate by Income Group",
-                order=[
-                    "Q1 (Terendah)",
-                    "Q2",
-                    "Q3",
-                    "Q4 (Tertinggi)",
-                ],
-            )
-
-        with c8:
-
-            bar_attrition_rate(
-                attrition_rate_by(
-                    labeled_f,
-                    "MaritalStatus",
-                ),
-                "MaritalStatus",
-                "Attrition Rate by Marital Status",
-            )
-
-    with tab2:
-
-        scatter_df = labeled_f.copy()
-
-        scatter_df[
-            "Attrition Status"
-        ] = (
-            scatter_df[
-                "Attrition"
-            ].map(
-                {
-                    0: "Bertahan",
-                    1: "Keluar",
-                }
-            )
-        )
-
-        fig = px.scatter(
-            scatter_df,
-
-            x="Age",
-            y="MonthlyIncome",
-
-            color="Attrition Status",
-
-            color_discrete_map={
-                "Bertahan":
-                    PRIMARY_COLOR,
-
-                "Keluar":
-                    ACCENT_COLOR,
-            },
-
-            hover_data=[
-                "Department",
-                "JobRole",
-                "OverTime",
-                "YearsAtCompany",
-            ],
-
-            labels={
-                "Age": "Age",
-                "MonthlyIncome":
-                    "Monthly Income",
-            },
-
-            title="Age vs Monthly Income",
-
-            opacity=0.72,
-        )
-
-        style_chart(
-            fig,
-            height=520,
-        )
-
-        st.plotly_chart(
-            fig,
-            use_container_width=True,
-        )
-
-    st.divider()
-
-    st.markdown(
-        '<div class="section-label">Key Insights</div>',
-        unsafe_allow_html=True,
-    )
-
-    st.markdown(
-        """
-        <div class="insight-box">
-            OverTime menunjukkan pola attrition yang paling kuat
-            di antara kelompok yang dianalisis.
-        </div>
-
-        <div class="insight-box">
-            Sales Representative dan Laboratory Technician
-            menunjukkan attrition rate yang tinggi.
-        </div>
-
-        <div class="insight-box">
-            Attrition cenderung menurun seiring bertambahnya tenure.
-        </div>
-
-        <div class="insight-box">
-            Work-Life Balance rendah menunjukkan pola attrition
-            yang lebih tinggi, tetapi hubungannya tidak sepenuhnya linear.
-        </div>
-
-        <div class="insight-box">
-            Semua temuan pada dashboard merupakan asosiasi,
-            bukan hubungan sebab-akibat.
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
-# ============================================================
-# EMPLOYEE PROFILE
-# ============================================================
-
-elif page == "Employee Profile":
-
-    page_header(
-        "Employee Profile",
-        "Eksplorasi karakteristik workforce berdasarkan filter",
-    )
-
-    attrition_rate = safe_attrition_rate(
-        labeled_f
-    )
-
-    c1, c2, c3, c4, c5, c6 = (
-        st.columns(6)
-    )
-
-    c1.metric(
-        "Employees",
-        format_thousand(
-            len(data_f)
-        )
-    )
-
-    c2.metric(
-        "Attrition Rate",
-        (
-            f"{attrition_rate:.1f}%"
-            if not pd.isna(
-                attrition_rate
-            )
-            else "-"
-        )
-    )
-
-    c3.metric(
-        "Average Age",
-        f"{data_f['Age'].mean():.1f}",
-    )
-
-    c4.metric(
-        "Average Tenure",
-        f"{data_f['YearsAtCompany'].mean():.1f}",
-    )
-
-    c5.metric(
-        "Average Monthly Income",
-        format_thousand(
-            data_f["MonthlyIncome"].mean()
-        ),
-    )
-
-    c6.metric(
-        "Average Satisfaction",
-        f"{data_f['AvgSatisfaction'].mean():.2f} / 4",
-    )
-
-    st.divider()
+        fig.update_traces(textposition="outside")
+        fig.update_layout(template=PLOTLY_TEMPLATE, title="Jumlah Karyawan per Job Role",
+                           margin=dict(l=10, r=10, t=50, b=10), height=340, yaxis={"categoryorder": "total ascending"},
+                           plot_bgcolor=C_SURFACE, paper_bgcolor=C_SURFACE)
+        st.plotly_chart(fig, use_container_width=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    col3, col4 = st.columns(2)
+    with col3:
+        st.markdown("<div class='section-card'>", unsafe_allow_html=True)
+        fig = px.histogram(labeled_fe, x="Age", nbins=20, color_discrete_sequence=[C_STAY])
+        fig.update_layout(template=PLOTLY_TEMPLATE, title="Distribusi Usia Karyawan", bargap=0.05,
+                           margin=dict(l=10, r=10, t=50, b=10), height=320,
+                           plot_bgcolor=C_SURFACE, paper_bgcolor=C_SURFACE)
+        st.plotly_chart(fig, use_container_width=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+    with col4:
+        st.markdown("<div class='section-card'>", unsafe_allow_html=True)
+        fig = px.histogram(labeled_fe, x="YearsAtCompany", nbins=20, color_discrete_sequence=[C_STAY])
+        fig.update_layout(template=PLOTLY_TEMPLATE, title="Distribusi Tenure (Years At Company)", bargap=0.05,
+                           margin=dict(l=10, r=10, t=50, b=10), height=320,
+                           plot_bgcolor=C_SURFACE, paper_bgcolor=C_SURFACE)
+        st.plotly_chart(fig, use_container_width=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+
+# ======================================================================================
+# PAGE 2 — ATTRITION ANALYSIS
+# ======================================================================================
+elif page == "📉 Attrition Analysis":
+    st.title("Attrition Analysis")
+    st.caption(f"Garis putus-putus abu-abu menandakan rata-rata attrition rate perusahaan ({overall_rate:.1f}%).")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("<div class='section-card'>", unsafe_allow_html=True)
+        t = attrition_rate_by(labeled_fe, "Department")
+        st.plotly_chart(bar_rate_chart(t, "Department", overall_rate, "Attrition Rate by Department", horizontal=True), use_container_width=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+    with col2:
+        st.markdown("<div class='section-card'>", unsafe_allow_html=True)
+        t = attrition_rate_by(labeled_fe, "JobRole")
+        st.plotly_chart(bar_rate_chart(t, "JobRole", overall_rate, "Attrition Rate by Job Role", horizontal=True), use_container_width=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    col3, col4 = st.columns(2)
+    with col3:
+        st.markdown("<div class='section-card'>", unsafe_allow_html=True)
+        tenure_order = ["Baru (0 Tahun)", "1-3 Tahun", "4-6 Tahun", "7-10 Tahun", "Lebih dari 10 Tahun"]
+        t = attrition_rate_by(labeled_fe, "TenureGroup", order=tenure_order)
+        st.plotly_chart(bar_rate_chart(t, "TenureGroup", overall_rate, "Attrition Rate by Tenure Group"), use_container_width=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+    with col4:
+        st.markdown("<div class='section-card'>", unsafe_allow_html=True)
+        t = attrition_rate_by(labeled_fe, "OverTime")
+        st.plotly_chart(bar_rate_chart(t, "OverTime", overall_rate, "Attrition Rate by OverTime"), use_container_width=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    col5, col6 = st.columns(2)
+    with col5:
+        st.markdown("<div class='section-card'>", unsafe_allow_html=True)
+        t = attrition_rate_by(labeled_fe, "JobSatisfaction", order=[1, 2, 3, 4])
+        t["JobSatisfaction"] = t["JobSatisfaction"].astype(str)
+        st.plotly_chart(bar_rate_chart(t, "JobSatisfaction", overall_rate, "Attrition Rate by Job Satisfaction"), use_container_width=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+    with col6:
+        st.markdown("<div class='section-card'>", unsafe_allow_html=True)
+        t = attrition_rate_by(labeled_fe, "WorkLifeBalance", order=[1, 2, 3, 4])
+        t["WorkLifeBalance"] = t["WorkLifeBalance"].astype(str)
+        st.plotly_chart(bar_rate_chart(t, "WorkLifeBalance", overall_rate, "Attrition Rate by Work-Life Balance"), use_container_width=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+
+# ======================================================================================
+# PAGE 3 — EMPLOYEE PROFILE
+# ======================================================================================
+elif page == "🧑‍💼 Employee Profile":
+    st.title("Employee Profile Explorer")
+    st.caption("Gunakan filter di bawah untuk menjelajahi karakteristik karyawan secara interaktif.")
+
+    st.markdown("<div class='section-card'>", unsafe_allow_html=True)
+    f1, f2, f3, f4 = st.columns(4)
+    with f1:
+        dept_sel = st.multiselect("Department", sorted(labeled_fe["Department"].unique()))
+    with f2:
+        role_sel = st.multiselect("Job Role", sorted(labeled_fe["JobRole"].unique()))
+    with f3:
+        gender_sel = st.multiselect("Gender", sorted(labeled_fe["Gender"].unique()))
+    with f4:
+        marital_sel = st.multiselect("Marital Status", sorted(labeled_fe["MaritalStatus"].unique()))
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    filtered = labeled_fe.copy()
+    if dept_sel:
+        filtered = filtered[filtered["Department"].isin(dept_sel)]
+    if role_sel:
+        filtered = filtered[filtered["JobRole"].isin(role_sel)]
+    if gender_sel:
+        filtered = filtered[filtered["Gender"].isin(gender_sel)]
+    if marital_sel:
+        filtered = filtered[filtered["MaritalStatus"].isin(marital_sel)]
 
     c1, c2, c3 = st.columns(3)
-
     with c1:
-
-        fig = px.histogram(
-            data_f,
-
-            x="Age",
-
-            nbins=20,
-
-            color_discrete_sequence=[
-                PRIMARY_COLOR
-            ],
-
-            title="Age Distribution",
-        )
-
-        style_chart(fig)
-
-        st.plotly_chart(
-            fig,
-            use_container_width=True,
-        )
-
+        kpi_card("Jumlah Karyawan (filter)", f"{filtered.shape[0]:,}")
     with c2:
-
-        fig = px.histogram(
-            data_f,
-
-            x="MonthlyIncome",
-
-            nbins=20,
-
-            color_discrete_sequence=[
-                PRIMARY_COLOR
-            ],
-
-            title="Monthly Income Distribution",
-        )
-
-        style_chart(fig)
-
-        st.plotly_chart(
-            fig,
-            use_container_width=True,
-        )
-
+        rate = filtered["Attrition"].mean() * 100 if len(filtered) else 0
+        kpi_card("Attrition Rate (filter)", f"{rate:.1f}%")
     with c3:
+        kpi_card("Rata-rata Income", f"${filtered['MonthlyIncome'].mean():,.0f}" if len(filtered) else "-")
 
-        fig = px.histogram(
-            data_f,
-
-            x="YearsAtCompany",
-
-            nbins=20,
-
-            color_discrete_sequence=[
-                PRIMARY_COLOR
-            ],
-
-            title="Years at Company Distribution",
-        )
-
-        style_chart(fig)
-
-        st.plotly_chart(
-            fig,
-            use_container_width=True,
-        )
-
-    c4, c5 = st.columns(2)
-
-    with c4:
-
-        fig = px.box(
-            data_f,
-
-            x="Department",
-
-            y="MonthlyIncome",
-
-            color_discrete_sequence=[
-                PRIMARY_COLOR
-            ],
-
-            title="Monthly Income by Department",
-        )
-
-        style_chart(fig)
-
-        st.plotly_chart(
-            fig,
-            use_container_width=True,
-        )
-
-    with c5:
-
-        sat_by_dept = (
-            data_f
-            .groupby(
-                "Department",
-                observed=True
-            )["AvgSatisfaction"]
-            .mean()
-            .reset_index()
-        )
-
-        fig = px.bar(
-            sat_by_dept.sort_values(
-                "AvgSatisfaction"
-            ),
-
-            x="AvgSatisfaction",
-
-            y="Department",
-
-            orientation="h",
-
-            color_discrete_sequence=[
-                PRIMARY_COLOR
-            ],
-
-            title="Average Satisfaction by Department",
-        )
-
-        fig.update_layout(
-            xaxis_range=[
-                0,
-                4
-            ],
-            yaxis_title=None,
-        )
-
-        style_chart(fig)
-
-        st.plotly_chart(
-            fig,
-            use_container_width=True,
-        )
-
-    st.divider()
-
-    st.markdown(
-        '<div class="section-label">Job Role Summary</div>',
-        unsafe_allow_html=True,
+    st.write("")
+    st.markdown("<div class='section-card'>", unsafe_allow_html=True)
+    plot_df = filtered.copy()
+    plot_df["Status"] = plot_df["Attrition"].map({0: "Bertahan", 1: "Keluar"})
+    fig = px.scatter(
+        plot_df, x="YearsAtCompany", y="MonthlyIncome", color="Status",
+        color_discrete_map={"Bertahan": C_STAY, "Keluar": C_LEAVE},
+        opacity=0.75, hover_data=["Department", "JobRole", "Age"],
     )
+    fig.update_layout(template=PLOTLY_TEMPLATE, title="Income vs Tenure (berdasarkan status attrition)",
+                       margin=dict(l=10, r=10, t=50, b=10), height=420,
+                       plot_bgcolor=C_SURFACE, paper_bgcolor=C_SURFACE)
+    st.plotly_chart(fig, use_container_width=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    st.caption(
-        "Ringkasan karakteristik workforce berdasarkan job role."
-    )
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("<div class='section-card'>", unsafe_allow_html=True)
+        fig = px.histogram(plot_df, x="Age", color="Status", barmode="overlay",
+                            color_discrete_map={"Bertahan": C_STAY, "Keluar": C_LEAVE}, opacity=0.7)
+        fig.update_layout(template=PLOTLY_TEMPLATE, title="Distribusi Usia",
+                           margin=dict(l=10, r=10, t=50, b=10), height=340,
+                           plot_bgcolor=C_SURFACE, paper_bgcolor=C_SURFACE)
+        st.plotly_chart(fig, use_container_width=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+    with col2:
+        st.markdown("<div class='section-card'>", unsafe_allow_html=True)
+        edu_counts = plot_df["EducationField"].value_counts().reset_index()
+        edu_counts.columns = ["EducationField", "Count"]
+        fig = px.bar(edu_counts, x="Count", y="EducationField", orientation="h",
+                     color_discrete_sequence=[C_STAY])
+        fig.update_layout(template=PLOTLY_TEMPLATE, title="Karyawan per Education Field",
+                           margin=dict(l=10, r=10, t=50, b=10), height=340,
+                           yaxis={"categoryorder": "total ascending"},
+                           plot_bgcolor=C_SURFACE, paper_bgcolor=C_SURFACE)
+        st.plotly_chart(fig, use_container_width=True)
+        st.markdown("</div>", unsafe_allow_html=True)
 
-    summary_rows = []
+    with st.expander("Lihat data karyawan (tabel)"):
+        st.dataframe(filtered, use_container_width=True, height=350)
 
-    for role, group in data_f.groupby(
-        "JobRole",
-        observed=True,
+
+# ======================================================================================
+# PAGE 4 — HR ACTION CENTER
+# ======================================================================================
+elif page == "🎯 HR Action Center":
+    st.title("HR Action Center")
+    st.caption("Daftar karyawan berisiko tinggi (dari data yang belum berlabel) hasil prediksi model, plus ringkasan insight & rekomendasi.")
+
+    m = model_bundle["metrics"]
+    c1, c2, c3, c4, c5 = st.columns(5)
+    for col, (label, key) in zip(
+        [c1, c2, c3, c4, c5],
+        [("Accuracy", "Accuracy"), ("Precision", "Precision"), ("Recall", "Recall"),
+         ("F1-Score", "F1"), ("ROC-AUC", "ROC-AUC")],
     ):
+        with col:
+            kpi_card(label, f"{m[key]:.3f}", "Test set")
 
-        labeled_role = group[
-            group["Attrition"].notna()
+    st.write("")
+    col1, col2 = st.columns([1.3, 1])
+    with col1:
+        st.markdown("<div class='section-card'>", unsafe_allow_html=True)
+        section_title("🔴 Top 15 Karyawan Berisiko Tertinggi", "Berdasarkan skor prediksi attrition model")
+        top_risk = risk_df.head(15).copy()
+        top_risk["AttritionRiskScore"] = top_risk["AttritionRiskScore"].astype(str) + "%"
+        st.dataframe(top_risk, use_container_width=True, height=430, hide_index=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    with col2:
+        st.markdown("<div class='section-card'>", unsafe_allow_html=True)
+        section_title("Distribusi Skor Risiko")
+        fig = px.histogram(risk_df, x="AttritionRiskScore", nbins=25, color_discrete_sequence=[C_LEAVE])
+        fig.add_vline(x=50, line_dash="dash", line_color=C_TEXT_MUTED, annotation_text="Skor 50%")
+        fig.update_layout(template=PLOTLY_TEMPLATE, margin=dict(l=10, r=10, t=10, b=10), height=430,
+                           plot_bgcolor=C_SURFACE, paper_bgcolor=C_SURFACE)
+        st.plotly_chart(fig, use_container_width=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown("<div class='section-card'>", unsafe_allow_html=True)
+    section_title("⚠️ High-Risk Groups", "Kelompok karyawan dengan attrition rate jauh di atas rata-rata perusahaan")
+    g1, g2, g3, g4 = st.columns(4)
+    groups = [
+        ("Sales Representative", "43.1% attrition rate", g1),
+        ("Sering Lembur (OverTime = Yes)", "31.9% attrition rate", g2),
+        ("Tenure Baru (0 tahun)", "Attrition tertinggi di kelompok tenure", g3),
+        ("Work-Life Balance Rendah", "Skor 1 — attrition tertinggi", g4),
+    ]
+    for name, desc, col in groups:
+        with col:
+            st.markdown(
+                f"""
+                <div style="border:1px solid {C_BORDER}; border-radius:12px; padding:14px; background:{C_LEAVE_SOFT}22;">
+                    <span class="badge-risk">RISIKO TINGGI</span>
+                    <div style="font-weight:700; margin-top:8px;">{name}</div>
+                    <div style="color:{C_TEXT_MUTED}; font-size:0.85rem; margin-top:2px;">{desc}</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    col3, col4 = st.columns(2)
+    with col3:
+        st.markdown("<div class='section-card'>", unsafe_allow_html=True)
+        section_title("📌 Key Insights")
+        insights = [
+            "Lembur (OverTime) adalah red flag terbesar — attrition rate 31.9% vs 10.8%.",
+            "Sales Representative punya attrition rate tertinggi di antara semua job role (43.1%).",
+            "Karyawan dengan tenure baru (0 tahun) paling rentan keluar; risiko menurun seiring masa kerja.",
+            "Job satisfaction & work-life balance rendah berkorelasi kuat dengan attrition.",
+            "TotalWorkingYears, YearsWithCurrManager, dan Age adalah prediktor numerik terkuat.",
+            "OverTime, JobRole, dan MaritalStatus signifikan secara statistik (Chi-Square, p < 0.05).",
+            "Model Logistic Regression (tuned) mencapai ROC-AUC 0.822 di test set.",
         ]
+        for ins in insights:
+            st.markdown(f"- {ins}")
+        st.markdown("</div>", unsafe_allow_html=True)
 
-        summary_rows.append(
-            {
-                "JobRole":
-                    role,
-
-                "Employees":
-                    len(group),
-
-                "Average Age":
-                    round(
-                        group["Age"].mean(),
-                        1,
-                    ),
-
-                "Average Tenure":
-                    round(
-                        group[
-                            "YearsAtCompany"
-                        ].mean(),
-                        1,
-                    ),
-
-                "Average Monthly Income":
-                    round(
-                        group[
-                            "MonthlyIncome"
-                        ].mean(),
-                        0,
-                    ),
-
-                "Attrition Rate (%)":
-                    (
-                        round(
-                            safe_attrition_rate(
-                                labeled_role
-                            ),
-                            1,
-                        )
-                        if not labeled_role.empty
-                        else np.nan
-                    ),
-            }
-        )
-
-    role_summary_df = (
-        pd.DataFrame(
-            summary_rows
-        )
-        .sort_values(
-            "Attrition Rate (%)",
-            ascending=False,
-        )
-    )
-
-    st.dataframe(
-        role_summary_df,
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            "Average Monthly Income":
-                st.column_config.NumberColumn(
-                    format="%,.0f"
-                ),
-
-            "Attrition Rate (%)":
-                st.column_config.NumberColumn(
-                    format="%.1f%%"
-                ),
-        },
-    )
-
-
-# ============================================================
-# HR ACTION
-# ============================================================
-
-else:
-
-    page_header(
-        "HR Action & Recommendations",
-        "Ringkasan prioritas berdasarkan hasil analisis",
-    )
-
-    col_a, col_b = st.columns(2)
-
-    with col_a:
-
-        st.markdown("### High Priority")
-
-        st.markdown(
-            """
-            <div class="priority-high">
-                <b>OverTime</b><br>
-                Karyawan yang sering lembur berkaitan dengan attrition
-                rate yang lebih tinggi.
-            </div>
-
-            <div class="priority-high">
-                <b>Job Role Berisiko Tinggi</b><br>
-                Sales Representative dan Laboratory Technician
-                menunjukkan attrition rate tinggi.
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-    with col_b:
-
-        st.markdown("### Medium Priority")
-
-        st.markdown(
-            """
-            <div class="priority-medium">
-                <b>Early Tenure</b><br>
-                Attrition cenderung lebih tinggi pada karyawan
-                dengan masa kerja baru.
-            </div>
-
-            <div class="priority-medium">
-                <b>Work-Life Balance</b><br>
-                Work-life balance rendah menunjukkan pola
-                attrition lebih tinggi.
-            </div>
-
-            <div class="priority-medium">
-                <b>Business Travel</b><br>
-                Travel yang lebih sering berkaitan dengan
-                attrition yang lebih tinggi.
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-    st.divider()
-
-    st.markdown(
-        '<div class="section-label">Recommended Actions</div>',
-        unsafe_allow_html=True,
-    )
-
-    recommendations = pd.DataFrame(
-        [
-            {
-                "Priority":
-                    "High",
-
-                "Problem":
-                    "Attrition tinggi pada karyawan yang sering lembur",
-
-                "Finding":
-                    "OverTime = Yes berkaitan dengan attrition rate lebih tinggi",
-
-                "Recommended Action":
-                    "Audit distribusi lembur, evaluasi headcount dan redistribusi workload",
-
-                "Target":
-                    "Tim dengan proporsi OverTime tinggi",
-            },
-
-            {
-                "Priority":
-                    "High",
-
-                "Problem":
-                    "Attrition tinggi pada Sales Representative",
-
-                "Finding":
-                    "Sales Representative memiliki attrition rate tertinggi",
-
-                "Recommended Action":
-                    "Review kompensasi, insentif, exit interview, dan career path",
-
-                "Target":
-                    "Sales Representative",
-            },
-
-            {
-                "Priority":
-                    "Medium",
-
-                "Problem":
-                    "Attrition tinggi pada karyawan baru",
-
-                "Finding":
-                    "Attrition lebih tinggi pada tenure pendek",
-
-                "Recommended Action":
-                    "Perkuat onboarding dan mentoring",
-
-                "Target":
-                    "Karyawan dengan tenure pendek",
-            },
-
-            {
-                "Priority":
-                    "Medium",
-
-                "Problem":
-                    "Work-life balance rendah",
-
-                "Finding":
-                    "WLB rendah menunjukkan pola attrition lebih tinggi",
-
-                "Recommended Action":
-                    "Evaluasi workload, business travel, dan fleksibilitas kerja",
-
-                "Target":
-                    "Karyawan dengan WLB rendah",
-            },
-
-            {
-                "Priority":
-                    "Medium",
-
-                "Problem":
-                    "Attrition perlu dimonitor lebih awal",
-
-                "Finding":
-                    "Model notebook dapat memberikan risk score",
-
-                "Recommended Action":
-                    "Gunakan risk score sebagai bahan diskusi HR",
-
-                "Target":
-                    "Karyawan dengan risk score tinggi",
-            },
+    with col4:
+        st.markdown("<div class='section-card'>", unsafe_allow_html=True)
+        section_title("✅ Recommended Actions")
+        actions = [
+            "Audit & batasi jam lembur, terutama di tim/departemen dengan beban kerja tinggi.",
+            "Perkuat program onboarding & mentoring untuk karyawan baru (tenure 0-1 tahun).",
+            "Evaluasi ulang kompensasi & jenjang karier untuk role Sales Representative.",
+            "Lakukan 1-on-1 check-in rutin untuk karyawan dengan skor risiko attrition tinggi.",
+            "Pantau skor work-life balance & job satisfaction secara berkala sebagai early warning.",
         ]
-    )
+        for i, act in enumerate(actions, 1):
+            st.markdown(f"**{i}.** {act}")
+        st.markdown("</div>", unsafe_allow_html=True)
 
-    st.dataframe(
-        recommendations,
-        use_container_width=True,
-        hide_index=True,
-    )
-
-    st.divider()
-
-    st.markdown(
-        '<div class="section-label">Important Note</div>',
-        unsafe_allow_html=True,
-    )
-
-    st.markdown(
-        """
-        <div class="insight-box">
-
-        Insight pada dashboard bersifat <b>asosiasi</b>,
-        bukan hubungan sebab-akibat.
-
-        Dashboard digunakan sebagai alat bantu analisis
-        dan eksplorasi data, bukan alat otomatis untuk
-        mengambil keputusan terhadap karyawan.
-
-        Model prediktif tetap berada di notebook.
-
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
-# ============================================================
-# FOOTER
-# ============================================================
-
-st.divider()
-
-st.caption(
-    "HR Analytics & Employee Attrition Prediction"
-)
+    with st.expander("Lihat parameter & detail model"):
+        st.write("Best params (GridSearchCV):", model_bundle["best_params"])
+        st.write("Confusion Matrix (test set):")
+        cm = model_bundle["confusion_matrix"]
+        cm_df = pd.DataFrame(cm, index=["Aktual: Bertahan", "Aktual: Keluar"],
+                              columns=["Prediksi: Bertahan", "Prediksi: Keluar"])
+        st.dataframe(cm_df, use_container_width=True)
