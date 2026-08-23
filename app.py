@@ -358,20 +358,26 @@ def bar_rate_chart(data, x_col, overall_rate, title, horizontal=False):
         color_continuous_scale=[C_STAY, C_LEAVE],
         text="rate",
     )
-    fig.update_traces(texttemplate="%{text}%", textposition="outside")
+    fig.update_traces(
+        texttemplate="%{text}%",
+        textposition="outside",
+        textfont=dict(color=C_TEXT, size=13),
+        cliponaxis=False,
+    )
     if horizontal:
-        fig.add_vline(x=overall_rate, line_dash="dash", line_color=C_TEXT_MUTED)
+        fig.add_vline(x=overall_rate, line_dash="dash", line_color="#000000", line_width=1.5)
     else:
-        fig.add_hline(y=overall_rate, line_dash="dash", line_color=C_TEXT_MUTED)
+        fig.add_hline(y=overall_rate, line_dash="dash", line_color="#000000", line_width=1.5)
     fig.update_layout(
         template=PLOTLY_TEMPLATE,
-        title=title,
+        title=dict(text=title, font=dict(color=C_TEXT, size=16)),
         showlegend=False,
         coloraxis_showscale=False,
         margin=dict(l=10, r=10, t=50, b=10),
         height=380,
         plot_bgcolor=C_SURFACE,
         paper_bgcolor=C_SURFACE,
+        font=dict(color=C_TEXT),
     )
     return fig
 
@@ -448,8 +454,8 @@ if page == "📊 Workforce Overview":
             dept_counts, x="Count", y="Department", orientation="h",
             color_discrete_sequence=[C_STAY], text="Count",
         )
-        fig.update_traces(textposition="outside")
-        fig.update_layout(template=PLOTLY_TEMPLATE, title="Jumlah Karyawan per Departemen",
+        fig.update_traces(textposition="outside", textfont=dict(color=C_TEXT, size=12), cliponaxis=False)
+        fig.update_layout(template=PLOTLY_TEMPLATE, title=dict(text="Jumlah Karyawan per Departemen", font=dict(color=C_TEXT, size=16)), font=dict(color=C_TEXT),
                            margin=dict(l=10, r=10, t=50, b=10), height=340,
                            plot_bgcolor=C_SURFACE, paper_bgcolor=C_SURFACE)
         st.plotly_chart(fig, use_container_width=True)
@@ -463,8 +469,8 @@ if page == "📊 Workforce Overview":
             role_counts, x="Count", y="JobRole", orientation="h",
             color_discrete_sequence=[C_STAY], text="Count",
         )
-        fig.update_traces(textposition="outside")
-        fig.update_layout(template=PLOTLY_TEMPLATE, title="Jumlah Karyawan per Job Role",
+        fig.update_traces(textposition="outside", textfont=dict(color=C_TEXT, size=12), cliponaxis=False)
+        fig.update_layout(template=PLOTLY_TEMPLATE, title=dict(text="Jumlah Karyawan per Job Role", font=dict(color=C_TEXT, size=16)), font=dict(color=C_TEXT),
                            margin=dict(l=10, r=10, t=50, b=10), height=340, yaxis={"categoryorder": "total ascending"},
                            plot_bgcolor=C_SURFACE, paper_bgcolor=C_SURFACE)
         st.plotly_chart(fig, use_container_width=True)
@@ -474,7 +480,7 @@ if page == "📊 Workforce Overview":
     with col3:
         st.markdown("<div class='section-card'>", unsafe_allow_html=True)
         fig = px.histogram(labeled_fe, x="Age", nbins=20, color_discrete_sequence=[C_STAY])
-        fig.update_layout(template=PLOTLY_TEMPLATE, title="Distribusi Usia Karyawan", bargap=0.05,
+        fig.update_layout(template=PLOTLY_TEMPLATE, title=dict(text="Distribusi Usia Karyawan", font=dict(color=C_TEXT, size=16)), font=dict(color=C_TEXT), bargap=0.05,
                            margin=dict(l=10, r=10, t=50, b=10), height=320,
                            plot_bgcolor=C_SURFACE, paper_bgcolor=C_SURFACE)
         st.plotly_chart(fig, use_container_width=True)
@@ -482,7 +488,7 @@ if page == "📊 Workforce Overview":
     with col4:
         st.markdown("<div class='section-card'>", unsafe_allow_html=True)
         fig = px.histogram(labeled_fe, x="YearsAtCompany", nbins=20, color_discrete_sequence=[C_STAY])
-        fig.update_layout(template=PLOTLY_TEMPLATE, title="Distribusi Tenure (Years At Company)", bargap=0.05,
+        fig.update_layout(template=PLOTLY_TEMPLATE, title=dict(text="Distribusi Tenure (Years At Company)", font=dict(color=C_TEXT, size=16)), font=dict(color=C_TEXT), bargap=0.05,
                            margin=dict(l=10, r=10, t=50, b=10), height=320,
                            plot_bgcolor=C_SURFACE, paper_bgcolor=C_SURFACE)
         st.plotly_chart(fig, use_container_width=True)
@@ -583,7 +589,7 @@ elif page == "🧑‍💼 Employee Profile":
         color_discrete_map={"Bertahan": C_STAY, "Keluar": C_LEAVE},
         opacity=0.75, hover_data=["Department", "JobRole", "Age"],
     )
-    fig.update_layout(template=PLOTLY_TEMPLATE, title="Income vs Tenure (berdasarkan status attrition)",
+    fig.update_layout(template=PLOTLY_TEMPLATE, title=dict(text="Income vs Tenure (berdasarkan status attrition)", font=dict(color=C_TEXT, size=16)), font=dict(color=C_TEXT),
                        margin=dict(l=10, r=10, t=50, b=10), height=420,
                        plot_bgcolor=C_SURFACE, paper_bgcolor=C_SURFACE)
     st.plotly_chart(fig, use_container_width=True)
@@ -594,7 +600,7 @@ elif page == "🧑‍💼 Employee Profile":
         st.markdown("<div class='section-card'>", unsafe_allow_html=True)
         fig = px.histogram(plot_df, x="Age", color="Status", barmode="overlay",
                             color_discrete_map={"Bertahan": C_STAY, "Keluar": C_LEAVE}, opacity=0.7)
-        fig.update_layout(template=PLOTLY_TEMPLATE, title="Distribusi Usia",
+        fig.update_layout(template=PLOTLY_TEMPLATE, title=dict(text="Distribusi Usia", font=dict(color=C_TEXT, size=16)), font=dict(color=C_TEXT),
                            margin=dict(l=10, r=10, t=50, b=10), height=340,
                            plot_bgcolor=C_SURFACE, paper_bgcolor=C_SURFACE)
         st.plotly_chart(fig, use_container_width=True)
@@ -605,7 +611,7 @@ elif page == "🧑‍💼 Employee Profile":
         edu_counts.columns = ["EducationField", "Count"]
         fig = px.bar(edu_counts, x="Count", y="EducationField", orientation="h",
                      color_discrete_sequence=[C_STAY])
-        fig.update_layout(template=PLOTLY_TEMPLATE, title="Karyawan per Education Field",
+        fig.update_layout(template=PLOTLY_TEMPLATE, title=dict(text="Karyawan per Education Field", font=dict(color=C_TEXT, size=16)), font=dict(color=C_TEXT),
                            margin=dict(l=10, r=10, t=50, b=10), height=340,
                            yaxis={"categoryorder": "total ascending"},
                            plot_bgcolor=C_SURFACE, paper_bgcolor=C_SURFACE)
@@ -648,7 +654,7 @@ elif page == "🎯 HR Action Center":
         section_title("Distribusi Skor Risiko")
         fig = px.histogram(risk_df, x="AttritionRiskScore", nbins=25, color_discrete_sequence=[C_LEAVE])
         fig.add_vline(x=50, line_dash="dash", line_color=C_TEXT_MUTED, annotation_text="Skor 50%")
-        fig.update_layout(template=PLOTLY_TEMPLATE, margin=dict(l=10, r=10, t=10, b=10), height=430,
+        fig.update_layout(template=PLOTLY_TEMPLATE, font=dict(color=C_TEXT), margin=dict(l=10, r=10, t=10, b=10), height=430,
                            plot_bgcolor=C_SURFACE, paper_bgcolor=C_SURFACE)
         st.plotly_chart(fig, use_container_width=True)
         st.markdown("</div>", unsafe_allow_html=True)
