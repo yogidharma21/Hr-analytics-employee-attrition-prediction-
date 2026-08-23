@@ -32,6 +32,8 @@ Pertanyaan utama:
 - Bagaimana hasil model dapat membantu strategi retensi HR?
 
 ---
+## Dashboard
+[Streamlit](https://mouvpexgklhcr8vfwyutda.streamlit.app/).
 
 ## 📊 Dataset
 
