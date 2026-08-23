@@ -14,7 +14,7 @@ import streamlit as st
 from sklearn.compose import ColumnTransformer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (accuracy_score, confusion_matrix, f1_score,
-                              precision_score, recall_score, roc_auc_score)
+                             precision_score, recall_score, roc_auc_score)
 from sklearn.model_selection import GridSearchCV, StratifiedKFold, train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
@@ -28,50 +28,51 @@ DATA_URL = (
 RANDOM_STATE = 42
 
 # ------------------------------------------------------------------------------------
-# Palette — kept deliberately small & non-clashing.
-# Navy/slate for structure, one blue (retain) + one amber (risk) as the only accent pair.
+# Palette — Clean Modern Enterprise / SaaS Theme
 # ------------------------------------------------------------------------------------
-C_BG = "#FFFFFF"
-C_SURFACE = "#FFFFFF"
-C_SIDEBAR = "#FFFFFF"
-C_SIDEBAR_MUTED = "#000000"
-C_TEXT = "#000000"
-C_TEXT_MUTED = "#000000"
-C_BORDER = "#D1D5DB"
-C_STAY = "#3B6FA0"     # muted blue  — "bertahan"
-C_LEAVE = "#E08A3C"    # muted amber — "keluar / risiko"
-C_STAY_SOFT = "#DCE6F1"
-C_LEAVE_SOFT = "#FBE6D2"
-C_ACCENT_GOOD = "#2F9E64"
-C_ACCENT_BAD = "#D65A5A"
+C_BG = "#F8FAFC"             # Slate 50 (Soft light background)
+C_SURFACE = "#FFFFFF"        # Pure white for cards
+C_SIDEBAR = "#0F172A"        # Slate 900 (Sleek deep dark blue)
+C_SIDEBAR_TEXT = "#F1F5F9"   # Light text for sidebar
+C_SIDEBAR_MUTED = "#94A3B8"  # Slate 400
+C_TEXT = "#0F172A"           # Slate 900
+C_TEXT_MUTED = "#64748B"     # Slate 500
+C_BORDER = "#E2E8F0"         # Slate 200
 
-# Custom Plotly template — makes sure axis titles, tick labels, and chart titles
-# always render in dark, readable colors regardless of the host page's theme.
+# Primary Pairs (Vibrant & Distinct)
+C_STAY = "#2563EB"           # Royal Blue (Bertahan)
+C_LEAVE = "#EA580C"          # Warm Orange/Coral (Keluar/Risiko)
+C_STAY_SOFT = "#EFF6FF"      # Light Blue tint
+C_LEAVE_SOFT = "#FFF7ED"     # Light Orange tint
+
+C_ACCENT_GOOD = "#10B981"    # Emerald Green
+C_ACCENT_BAD = "#EF4444"     # Red
+
+# Custom Plotly template — Makes charts crisp & modern
 _hr_template = go.layout.Template()
 _hr_template.layout = go.Layout(
-    font=dict(family="Inter, Segoe UI, sans-serif", color=C_TEXT, size=13),
-    title=dict(font=dict(color=C_TEXT, size=16)),
-    paper_bgcolor=C_SURFACE,
-    plot_bgcolor=C_SURFACE,
+    font=dict(family="Inter, -apple-system, BlinkMacSystemFont, sans-serif", color=C_TEXT, size=12),
+    title=dict(font=dict(color=C_TEXT, size=15, family="Inter, sans-serif"), x=0, xanchor="left"),
+    paper_bgcolor="rgba(0,0,0,0)",
+    plot_bgcolor="rgba(0,0,0,0)",
     xaxis=dict(
-        title_font=dict(color=C_TEXT, size=13),
-        tickfont=dict(color=C_TEXT_MUTED, size=12),
-        gridcolor=C_BORDER,
+        title_font=dict(color=C_TEXT_MUTED, size=12),
+        tickfont=dict(color=C_TEXT_MUTED, size=11),
+        gridcolor="#F1F5F9",
         linecolor=C_BORDER,
         zerolinecolor=C_BORDER,
     ),
     yaxis=dict(
-        title_font=dict(color=C_TEXT, size=13),
-        tickfont=dict(color=C_TEXT_MUTED, size=12),
-        gridcolor=C_BORDER,
+        title_font=dict(color=C_TEXT_MUTED, size=12),
+        tickfont=dict(color=C_TEXT_MUTED, size=11),
+        gridcolor="#F1F5F9",
         linecolor=C_BORDER,
         zerolinecolor=C_BORDER,
     ),
-    legend=dict(font=dict(color=C_TEXT)),
-    coloraxis_colorbar=dict(tickfont=dict(color=C_TEXT_MUTED)),
+    legend=dict(font=dict(color=C_TEXT, size=11)),
+    coloraxis_colorbar=dict(tickfont=dict(color=C_TEXT_MUTED, size=11)),
 )
 pio.templates["hr_dashboard"] = _hr_template
-
 PLOTLY_TEMPLATE = "plotly_white+hr_dashboard"
 
 
@@ -88,104 +89,135 @@ st.set_page_config(
 st.markdown(
     f"""
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
         html, body, [class*="css"] {{
-            font-family: 'Inter', 'Segoe UI', sans-serif;
+            font-family: 'Inter', -apple-system, sans-serif;
         }}
         .stApp {{
             background-color: {C_BG};
         }}
-        /* Sidebar */
+        
+        /* Sidebar Styling */
         section[data-testid="stSidebar"] {{
-            background-color: {C_SIDEBAR};
+            background-color: {C_SIDEBAR} !important;
+            border-right: 1px solid #1E293B;
         }}
         section[data-testid="stSidebar"] * {{
-            color: {C_SIDEBAR_MUTED} !important;
+            color: {C_SIDEBAR_TEXT} !important;
         }}
-        section[data-testid="stSidebar"] h1,
-        section[data-testid="stSidebar"] h2,
-        section[data-testid="stSidebar"] h3 {{
-            color: #FFFFFF !important;
-        }}
-        section[data-testid="stSidebar"] label {{
-            color: #E5E7EB !important;
-        }}
-        div[role="radiogroup"] label {{
-            padding: 6px 10px;
+        section[data-testid="stSidebar"] .stRadio label {{
+            background-color: transparent;
+            padding: 10px 14px;
             border-radius: 8px;
+            transition: all 0.2s ease;
+            font-weight: 500;
         }}
+        section[data-testid="stSidebar"] .stRadio label:hover {{
+            background-color: rgba(255, 255, 255, 0.08);
+        }}
+        section[data-testid="stSidebar"] [data-aria-selected="true"] {{
+            background-color: {C_STAY} !important;
+            color: #FFFFFF !important;
+            font-weight: 600;
+        }}
+        
         /* Headings */
-        h1, h2, h3, h4 {{
+        h1 {{
+            color: {C_TEXT};
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            font-size: 1.85rem !important;
+        }}
+        h2, h3, h4 {{
             color: {C_TEXT};
             font-weight: 700;
+            letter-spacing: -0.01em;
         }}
         p, li, span, label {{
             color: {C_TEXT};
         }}
-        /* KPI card */
+
+        /* Modern KPI Card */
         .kpi-card {{
             background-color: {C_SURFACE};
             border: 1px solid {C_BORDER};
-            border-radius: 14px;
+            border-radius: 12px;
             padding: 18px 20px;
-            box-shadow: 0 1px 3px rgba(16, 24, 40, 0.04);
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
+            position: relative;
+            overflow: hidden;
+        }}
+        .kpi-card::before {{
+            content: "";
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, {C_STAY}, #60A5FA);
+        }}
+        .kpi-card-risk::before {{
+            background: linear-gradient(90deg, {C_LEAVE}, #FDBA74) !important;
         }}
         .kpi-label {{
-            font-size: 0.78rem;
+            font-size: 0.75rem;
             font-weight: 600;
-            letter-spacing: 0.02em;
+            letter-spacing: 0.05em;
             text-transform: uppercase;
             color: {C_TEXT_MUTED};
             margin-bottom: 6px;
         }}
         .kpi-value {{
-            font-size: 1.9rem;
+            font-size: 1.8rem;
             font-weight: 800;
             color: {C_TEXT};
-            line-height: 1.1;
+            line-height: 1.2;
+            letter-spacing: -0.02em;
         }}
         .kpi-sub {{
             font-size: 0.78rem;
             color: {C_TEXT_MUTED};
             margin-top: 4px;
+            font-weight: 400;
         }}
-        /* Section card wrapper */
+
+        /* Section Card Wrapper */
         .section-card {{
             background-color: {C_SURFACE};
             border: 1px solid {C_BORDER};
-            border-radius: 14px;
-            padding: 20px 22px;
-            margin-bottom: 18px;
-            box-shadow: 0 1px 3px rgba(16, 24, 40, 0.04);
+            border-radius: 12px;
+            padding: 22px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.03);
         }}
+
         /* Badges */
         .badge-risk {{
             display: inline-block;
             background-color: {C_LEAVE_SOFT};
-            color: #8A4A16;
+            color: #C2410C;
+            border: 1px solid #FFEDD5;
             font-weight: 700;
-            font-size: 0.75rem;
-            padding: 3px 10px;
+            font-size: 0.7rem;
+            padding: 2px 10px;
             border-radius: 999px;
+            letter-spacing: 0.03em;
         }}
         .badge-safe {{
             display: inline-block;
             background-color: {C_STAY_SOFT};
-            color: #1E3A5F;
+            color: #1E40AF;
+            border: 1px solid #DBEAFE;
             font-weight: 700;
-            font-size: 0.75rem;
-            padding: 3px 10px;
+            font-size: 0.7rem;
+            padding: 2px 10px;
             border-radius: 999px;
+            letter-spacing: 0.03em;
         }}
-        .insight-title {{
-            font-weight: 700;
-            font-size: 1rem;
-            color: {C_TEXT};
-            margin-bottom: 2px;
-        }}
+        
         .divider-line {{
             border: none;
             border-top: 1px solid {C_BORDER};
-            margin: 10px 0 18px 0;
+            margin: 12px 0 18px 0;
         }}
         header[data-testid="stHeader"] {{
             background-color: {C_BG};
@@ -197,7 +229,7 @@ st.markdown(
 
 
 # ======================================================================================
-# DATA LOADING + FEATURE ENGINEERING  (mirrors the notebook exactly)
+# DATA LOADING + FEATURE ENGINEERING (mirrors notebook)
 # ======================================================================================
 @st.cache_data(show_spinner=False)
 def load_data():
@@ -279,7 +311,6 @@ def train_model(labeled: pd.DataFrame):
     }
     cm = confusion_matrix(y_test, y_pred)
 
-    # Feature coefficients for interpretation
     cat_names = list(
         final_model.named_steps["preprocessor"]
         .named_transformers_["cat"]
@@ -316,10 +347,11 @@ def score_unlabeled(_model, feature_cols, unlabeled: pd.DataFrame):
 # ======================================================================================
 # SMALL UI HELPERS
 # ======================================================================================
-def kpi_card(label, value, sub=""):
+def kpi_card(label, value, sub="", is_risk=False):
+    card_class = "kpi-card kpi-card-risk" if is_risk else "kpi-card"
     st.markdown(
         f"""
-        <div class="kpi-card">
+        <div class="{card_class}">
             <div class="kpi-label">{label}</div>
             <div class="kpi-value">{value}</div>
             <div class="kpi-sub">{sub}</div>
@@ -332,7 +364,7 @@ def kpi_card(label, value, sub=""):
 def section_title(title, subtitle=None):
     st.markdown(f"### {title}")
     if subtitle:
-        st.markdown(f"<span style='color:{C_TEXT_MUTED}; font-size:0.9rem;'>{subtitle}</span>", unsafe_allow_html=True)
+        st.markdown(f"<div style='color:{C_TEXT_MUTED}; font-size:0.88rem; margin-top:-6px; margin-bottom:10px;'>{subtitle}</div>", unsafe_allow_html=True)
     st.markdown("<hr class='divider-line'/>", unsafe_allow_html=True)
 
 
@@ -359,27 +391,22 @@ def bar_rate_chart(data, x_col, overall_rate, title, horizontal=False):
         text="rate",
     )
     fig.update_traces(
-        texttemplate="%{text}%",
+        texttemplate="<b>%{text}%</b>",
         textposition="outside",
-        textfont=dict(color=C_TEXT, size=13),
-        outsidetextfont=dict(color=C_TEXT, size=13),
-        insidetextfont=dict(color=C_TEXT, size=13),
+        textfont=dict(color=C_TEXT, size=11),
         cliponaxis=False,
     )
     if horizontal:
-        fig.add_vline(x=overall_rate, line_dash="dash", line_color="#000000", line_width=1.5)
+        fig.add_vline(x=overall_rate, line_dash="dash", line_color=C_TEXT_MUTED, line_width=1.5)
     else:
-        fig.add_hline(y=overall_rate, line_dash="dash", line_color="#000000", line_width=1.5)
+        fig.add_hline(y=overall_rate, line_dash="dash", line_color=C_TEXT_MUTED, line_width=1.5)
     fig.update_layout(
         template=PLOTLY_TEMPLATE,
-        title=dict(text=title, font=dict(color=C_TEXT, size=16)),
+        title=dict(text=title, font=dict(color=C_TEXT, size=15, family="Inter")),
         showlegend=False,
         coloraxis_showscale=False,
-        margin=dict(l=10, r=10, t=50, b=10),
-        height=380,
-        plot_bgcolor=C_SURFACE,
-        paper_bgcolor=C_SURFACE,
-        font=dict(color=C_TEXT),
+        margin=dict(l=10, r=10, t=45, b=10),
+        height=360,
     )
     return fig
 
@@ -399,12 +426,16 @@ risk_df = score_unlabeled(model_bundle["model"], model_bundle["feature_cols"], u
 # SIDEBAR NAVIGATION
 # ======================================================================================
 with st.sidebar:
-    st.markdown("## 👥 HR Attrition\n### Intelligence Dashboard")
     st.markdown(
-        "<span style='font-size:0.85rem;'>Analisis workforce & prediksi risiko attrition karyawan.</span>",
-        unsafe_allow_html=True,
+        f"""
+        <div style="padding: 10px 0 20px 0;">
+            <div style="font-size: 1.25rem; font-weight: 800; color: #FFFFFF; letter-spacing: -0.02em;">👥 HR Attrition</div>
+            <div style="font-size: 0.8rem; color: {C_SIDEBAR_MUTED}; margin-top: 2px;">Intelligence & Analytics Dashboard</div>
+        </div>
+        """,
+        unsafe_allow_html=True
     )
-    st.markdown("---")
+    
     page = st.radio(
         "Navigasi",
         [
@@ -415,15 +446,17 @@ with st.sidebar:
         ],
         label_visibility="collapsed",
     )
-    st.markdown("---")
+    
+    st.markdown("<div style='margin: 20px 0; border-top: 1px solid #1E293B;'></div>", unsafe_allow_html=True)
     st.markdown(
         f"""
-        <span style='font-size:0.78rem;'>
-        Total data: {raw_df.shape[0]} karyawan<br/>
-        Berlabel: {labeled.shape[0]} • Belum berlabel: {unlabeled.shape[0]}<br/>
-        Model: Logistic Regression (tuned)<br/>
-        ROC-AUC test: {model_bundle['metrics']['ROC-AUC']:.3f}
-        </span>
+        <div style="background-color: #1E293B; padding: 14px; border-radius: 10px; font-size: 0.78rem; line-height: 1.5; color: {C_SIDEBAR_MUTED};">
+            <div style="font-weight: 600; color: #F8FAFC; margin-bottom: 6px;">📌 System Summary</div>
+            Total Karyawan: <b style="color:#FFF;">{raw_df.shape[0]}</b><br/>
+            Berlabel: <b style="color:#FFF;">{labeled.shape[0]}</b> • Unlabeled: <b style="color:#FFF;">{unlabeled.shape[0]}</b><br/>
+            Model: <b style="color:#FFF;">Logistic Regression</b><br/>
+            ROC-AUC Score: <b style="color:#10B981;">{model_bundle['metrics']['ROC-AUC']:.3f}</b>
+        </div>
         """,
         unsafe_allow_html=True,
     )
@@ -434,13 +467,13 @@ with st.sidebar:
 # ======================================================================================
 if page == "📊 Workforce Overview":
     st.title("Workforce Overview")
-    st.caption("Gambaran umum komposisi karyawan berdasarkan data yang berlabel.")
+    st.caption("Gambaran umum komposisi demografi dan demografi kerja karyawan berlabel.")
 
     c1, c2, c3, c4 = st.columns(4)
     with c1:
         kpi_card("Total Employees", f"{labeled_fe.shape[0]:,}", "Karyawan berlabel")
     with c2:
-        kpi_card("Attrition Rate", f"{overall_rate:.1f}%", "Rata-rata perusahaan")
+        kpi_card("Attrition Rate", f"{overall_rate:.1f}%", "Rata-rata perusahaan", is_risk=True)
     with c3:
         kpi_card("Avg. Tenure", f"{labeled_fe['YearsAtCompany'].mean():.1f} thn", "Masa kerja rata-rata")
     with c4:
@@ -456,10 +489,9 @@ if page == "📊 Workforce Overview":
             dept_counts, x="Count", y="Department", orientation="h",
             color_discrete_sequence=[C_STAY], text="Count",
         )
-        fig.update_traces(textposition="outside", textfont=dict(color=C_TEXT, size=12), outsidetextfont=dict(color=C_TEXT, size=12), insidetextfont=dict(color=C_TEXT, size=12), cliponaxis=False)
-        fig.update_layout(template=PLOTLY_TEMPLATE, title=dict(text="Jumlah Karyawan per Departemen", font=dict(color=C_TEXT, size=16)), font=dict(color=C_TEXT),
-                           margin=dict(l=10, r=10, t=50, b=10), height=340,
-                           plot_bgcolor=C_SURFACE, paper_bgcolor=C_SURFACE)
+        fig.update_traces(textposition="outside", textfont=dict(color=C_TEXT, size=11), cliponaxis=False)
+        fig.update_layout(template=PLOTLY_TEMPLATE, title=dict(text="Jumlah Karyawan per Departemen"),
+                          margin=dict(l=10, r=10, t=45, b=10), height=320)
         st.plotly_chart(fig, use_container_width=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
@@ -471,10 +503,9 @@ if page == "📊 Workforce Overview":
             role_counts, x="Count", y="JobRole", orientation="h",
             color_discrete_sequence=[C_STAY], text="Count",
         )
-        fig.update_traces(textposition="outside", textfont=dict(color=C_TEXT, size=12), outsidetextfont=dict(color=C_TEXT, size=12), insidetextfont=dict(color=C_TEXT, size=12), cliponaxis=False)
-        fig.update_layout(template=PLOTLY_TEMPLATE, title=dict(text="Jumlah Karyawan per Job Role", font=dict(color=C_TEXT, size=16)), font=dict(color=C_TEXT),
-                           margin=dict(l=10, r=10, t=50, b=10), height=340, yaxis={"categoryorder": "total ascending"},
-                           plot_bgcolor=C_SURFACE, paper_bgcolor=C_SURFACE)
+        fig.update_traces(textposition="outside", textfont=dict(color=C_TEXT, size=11), cliponaxis=False)
+        fig.update_layout(template=PLOTLY_TEMPLATE, title=dict(text="Jumlah Karyawan per Job Role"),
+                          margin=dict(l=10, r=10, t=45, b=10), height=320, yaxis={"categoryorder": "total ascending"})
         st.plotly_chart(fig, use_container_width=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
@@ -482,17 +513,15 @@ if page == "📊 Workforce Overview":
     with col3:
         st.markdown("<div class='section-card'>", unsafe_allow_html=True)
         fig = px.histogram(labeled_fe, x="Age", nbins=20, color_discrete_sequence=[C_STAY])
-        fig.update_layout(template=PLOTLY_TEMPLATE, title=dict(text="Distribusi Usia Karyawan", font=dict(color=C_TEXT, size=16)), font=dict(color=C_TEXT), bargap=0.05,
-                           margin=dict(l=10, r=10, t=50, b=10), height=320,
-                           plot_bgcolor=C_SURFACE, paper_bgcolor=C_SURFACE)
+        fig.update_layout(template=PLOTLY_TEMPLATE, title=dict(text="Distribusi Usia Karyawan"), bargap=0.08,
+                          margin=dict(l=10, r=10, t=45, b=10), height=300)
         st.plotly_chart(fig, use_container_width=True)
         st.markdown("</div>", unsafe_allow_html=True)
     with col4:
         st.markdown("<div class='section-card'>", unsafe_allow_html=True)
         fig = px.histogram(labeled_fe, x="YearsAtCompany", nbins=20, color_discrete_sequence=[C_STAY])
-        fig.update_layout(template=PLOTLY_TEMPLATE, title=dict(text="Distribusi Tenure (Years At Company)", font=dict(color=C_TEXT, size=16)), font=dict(color=C_TEXT), bargap=0.05,
-                           margin=dict(l=10, r=10, t=50, b=10), height=320,
-                           plot_bgcolor=C_SURFACE, paper_bgcolor=C_SURFACE)
+        fig.update_layout(template=PLOTLY_TEMPLATE, title=dict(text="Distribusi Masa Kerja (Years At Company)"), bargap=0.08,
+                          margin=dict(l=10, r=10, t=45, b=10), height=300)
         st.plotly_chart(fig, use_container_width=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
@@ -502,7 +531,7 @@ if page == "📊 Workforce Overview":
 # ======================================================================================
 elif page == "📉 Attrition Analysis":
     st.title("Attrition Analysis")
-    st.caption(f"Garis putus-putus abu-abu menandakan rata-rata attrition rate perusahaan ({overall_rate:.1f}%).")
+    st.caption(f"Analisis rasio turnover. Garis putus-putus menunjukkan rata-rata attrition rate ({overall_rate:.1f}%).")
 
     col1, col2 = st.columns(2)
     with col1:
@@ -549,7 +578,7 @@ elif page == "📉 Attrition Analysis":
 # ======================================================================================
 elif page == "🧑‍💼 Employee Profile":
     st.title("Employee Profile Explorer")
-    st.caption("Gunakan filter di bawah untuk menjelajahi karakteristik karyawan secara interaktif.")
+    st.caption("Eksplorasi interaktif karakteristik demografi dan segmen karyawan.")
 
     st.markdown("<div class='section-card'>", unsafe_allow_html=True)
     f1, f2, f3, f4 = st.columns(4)
@@ -575,10 +604,10 @@ elif page == "🧑‍💼 Employee Profile":
 
     c1, c2, c3 = st.columns(3)
     with c1:
-        kpi_card("Jumlah Karyawan (filter)", f"{filtered.shape[0]:,}")
+        kpi_card("Jumlah Karyawan", f"{filtered.shape[0]:,}", "Hasil Filter")
     with c2:
         rate = filtered["Attrition"].mean() * 100 if len(filtered) else 0
-        kpi_card("Attrition Rate (filter)", f"{rate:.1f}%")
+        kpi_card("Attrition Rate", f"{rate:.1f}%", "Hasil Filter", is_risk=(rate > overall_rate))
     with c3:
         kpi_card("Rata-rata Income", f"${filtered['MonthlyIncome'].mean():,.0f}" if len(filtered) else "-")
 
@@ -589,11 +618,10 @@ elif page == "🧑‍💼 Employee Profile":
     fig = px.scatter(
         plot_df, x="YearsAtCompany", y="MonthlyIncome", color="Status",
         color_discrete_map={"Bertahan": C_STAY, "Keluar": C_LEAVE},
-        opacity=0.75, hover_data=["Department", "JobRole", "Age"],
+        opacity=0.85, hover_data=["Department", "JobRole", "Age"],
     )
-    fig.update_layout(template=PLOTLY_TEMPLATE, title=dict(text="Income vs Tenure (berdasarkan status attrition)", font=dict(color=C_TEXT, size=16)), font=dict(color=C_TEXT),
-                       margin=dict(l=10, r=10, t=50, b=10), height=420,
-                       plot_bgcolor=C_SURFACE, paper_bgcolor=C_SURFACE)
+    fig.update_layout(template=PLOTLY_TEMPLATE, title=dict(text="Monthly Income vs Tenure"),
+                      margin=dict(l=10, r=10, t=45, b=10), height=400)
     st.plotly_chart(fig, use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -602,9 +630,8 @@ elif page == "🧑‍💼 Employee Profile":
         st.markdown("<div class='section-card'>", unsafe_allow_html=True)
         fig = px.histogram(plot_df, x="Age", color="Status", barmode="overlay",
                             color_discrete_map={"Bertahan": C_STAY, "Keluar": C_LEAVE}, opacity=0.7)
-        fig.update_layout(template=PLOTLY_TEMPLATE, title=dict(text="Distribusi Usia", font=dict(color=C_TEXT, size=16)), font=dict(color=C_TEXT),
-                           margin=dict(l=10, r=10, t=50, b=10), height=340,
-                           plot_bgcolor=C_SURFACE, paper_bgcolor=C_SURFACE)
+        fig.update_layout(template=PLOTLY_TEMPLATE, title=dict(text="Distribusi Usia berdasarkan Status"),
+                          margin=dict(l=10, r=10, t=45, b=10), height=320)
         st.plotly_chart(fig, use_container_width=True)
         st.markdown("</div>", unsafe_allow_html=True)
     with col2:
@@ -613,14 +640,12 @@ elif page == "🧑‍💼 Employee Profile":
         edu_counts.columns = ["EducationField", "Count"]
         fig = px.bar(edu_counts, x="Count", y="EducationField", orientation="h",
                      color_discrete_sequence=[C_STAY])
-        fig.update_layout(template=PLOTLY_TEMPLATE, title=dict(text="Karyawan per Education Field", font=dict(color=C_TEXT, size=16)), font=dict(color=C_TEXT),
-                           margin=dict(l=10, r=10, t=50, b=10), height=340,
-                           yaxis={"categoryorder": "total ascending"},
-                           plot_bgcolor=C_SURFACE, paper_bgcolor=C_SURFACE)
+        fig.update_layout(template=PLOTLY_TEMPLATE, title=dict(text="Karyawan per Education Field"),
+                          margin=dict(l=10, r=10, t=45, b=10), height=320, yaxis={"categoryorder": "total ascending"})
         st.plotly_chart(fig, use_container_width=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
-    with st.expander("Lihat data karyawan (tabel)"):
+    with st.expander("Lihat Data Detail Karyawan (Tabel)"):
         st.dataframe(filtered, use_container_width=True, height=350)
 
 
@@ -629,7 +654,7 @@ elif page == "🧑‍💼 Employee Profile":
 # ======================================================================================
 elif page == "🎯 HR Action Center":
     st.title("HR Action Center")
-    st.caption("Daftar karyawan berisiko tinggi (dari data yang belum berlabel) hasil prediksi model, plus ringkasan insight & rekomendasi.")
+    st.caption("Prediksi risiko attrition untuk karyawan unlabeled serta rincian rekomendasi strategis HR.")
 
     m = model_bundle["metrics"]
     c1, c2, c3, c4, c5 = st.columns(5)
@@ -639,45 +664,44 @@ elif page == "🎯 HR Action Center":
          ("F1-Score", "F1"), ("ROC-AUC", "ROC-AUC")],
     ):
         with col:
-            kpi_card(label, f"{m[key]:.3f}", "Test set")
+            kpi_card(label, f"{m[key]:.3f}", "Test Set Evaluation")
 
     st.write("")
     col1, col2 = st.columns([1.3, 1])
     with col1:
         st.markdown("<div class='section-card'>", unsafe_allow_html=True)
-        section_title("🔴 Top 15 Karyawan Berisiko Tertinggi", "Berdasarkan skor prediksi attrition model")
+        section_title("🔴 Top 15 Karyawan Berisiko Tertinggi", "Hasil kalkulasi probabilitas model Logistic Regression")
         top_risk = risk_df.head(15).copy()
         top_risk["AttritionRiskScore"] = top_risk["AttritionRiskScore"].astype(str) + "%"
-        st.dataframe(top_risk, use_container_width=True, height=430, hide_index=True)
+        st.dataframe(top_risk, use_container_width=True, height=410, hide_index=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
     with col2:
         st.markdown("<div class='section-card'>", unsafe_allow_html=True)
-        section_title("Distribusi Skor Risiko")
+        section_title("Distribusi Skor Risiko Attrition")
         fig = px.histogram(risk_df, x="AttritionRiskScore", nbins=25, color_discrete_sequence=[C_LEAVE])
-        fig.add_vline(x=50, line_dash="dash", line_color=C_TEXT_MUTED, annotation_text="Skor 50%")
-        fig.update_layout(template=PLOTLY_TEMPLATE, font=dict(color=C_TEXT), margin=dict(l=10, r=10, t=10, b=10), height=430,
-                           plot_bgcolor=C_SURFACE, paper_bgcolor=C_SURFACE)
+        fig.add_vline(x=50, line_dash="dash", line_color=C_TEXT_MUTED, annotation_text="Threshold 50%")
+        fig.update_layout(template=PLOTLY_TEMPLATE, margin=dict(l=10, r=10, t=10, b=10), height=410)
         st.plotly_chart(fig, use_container_width=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown("<div class='section-card'>", unsafe_allow_html=True)
-    section_title("⚠️ High-Risk Groups", "Kelompok karyawan dengan attrition rate jauh di atas rata-rata perusahaan")
+    section_title("⚠️ Kelompok Rentan (High-Risk Groups)", "Segmen karyawan dengan attrition rate jauh melampaui rata-rata")
     g1, g2, g3, g4 = st.columns(4)
     groups = [
         ("Sales Representative", "43.1% attrition rate", g1),
         ("Sering Lembur (OverTime = Yes)", "31.9% attrition rate", g2),
-        ("Tenure Baru (0 tahun)", "Attrition tertinggi di kelompok tenure", g3),
-        ("Work-Life Balance Rendah", "Skor 1 — attrition tertinggi", g4),
+        ("Tenure Baru (0 tahun)", "Attrition tertinggi di tenure group", g3),
+        ("Work-Life Balance Rendah", "Skor 1 — Attrition tertinggi", g4),
     ]
     for name, desc, col in groups:
         with col:
             st.markdown(
                 f"""
-                <div style="border:1px solid {C_BORDER}; border-radius:12px; padding:14px; background:{C_LEAVE_SOFT}22;">
+                <div style="border:1px solid {C_BORDER}; border-radius:10px; padding:14px; background:{C_LEAVE_SOFT};">
                     <span class="badge-risk">RISIKO TINGGI</span>
-                    <div style="font-weight:700; margin-top:8px;">{name}</div>
-                    <div style="color:{C_TEXT_MUTED}; font-size:0.85rem; margin-top:2px;">{desc}</div>
+                    <div style="font-weight:700; margin-top:8px; color:{C_TEXT};">{name}</div>
+                    <div style="color:{C_TEXT_MUTED}; font-size:0.82rem; margin-top:2px;">{desc}</div>
                 </div>
                 """,
                 unsafe_allow_html=True,
@@ -689,36 +713,37 @@ elif page == "🎯 HR Action Center":
         st.markdown("<div class='section-card'>", unsafe_allow_html=True)
         section_title("📌 Key Insights")
         insights = [
-            "Lembur (OverTime) adalah red flag terbesar — attrition rate 31.9% vs 10.8%.",
-            "Sales Representative punya attrition rate tertinggi di antara semua job role (43.1%).",
-            "Karyawan dengan tenure baru (0 tahun) paling rentan keluar; risiko menurun seiring masa kerja.",
-            "Job satisfaction & work-life balance rendah berkorelasi kuat dengan attrition.",
-            "TotalWorkingYears, YearsWithCurrManager, dan Age adalah prediktor numerik terkuat.",
-            "OverTime, JobRole, dan MaritalStatus signifikan secara statistik (Chi-Square, p < 0.05).",
-            "Model Logistic Regression (tuned) mencapai ROC-AUC 0.822 di test set.",
+            "<b>OverTime (Lembur):</b> Indikator paling signifikan (31.9% attrition vs 10.8%).",
+            "<b>Job Role:</b> Sales Representative memiliki tingkat attrition paling tinggi (43.1%).",
+            "<b>Tenure Rawan:</b> Karyawan baru (0 tahun) paling rentan keluar; kestabilan meningkat setelah 3 tahun.",
+            "<b>Kepuasan & Balance:</b> Skor kepuasan kerja dan WLB rendah berkorelasi langsung dengan pengunduran diri.",
+            "<b>Model Performance:</b> Model Logistic Regression terkalibrasi baik dengan ROC-AUC <b>0.822</b> pada test set.",
         ]
         for ins in insights:
-            st.markdown(f"- {ins}")
+            st.markdown(f"<div style='margin-bottom:8px; font-size:0.9rem; line-height:1.4;'>• {ins}</div>", unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
     with col4:
         st.markdown("<div class='section-card'>", unsafe_allow_html=True)
         section_title("✅ Recommended Actions")
         actions = [
-            "Audit & batasi jam lembur, terutama di tim/departemen dengan beban kerja tinggi.",
-            "Perkuat program onboarding & mentoring untuk karyawan baru (tenure 0-1 tahun).",
-            "Evaluasi ulang kompensasi & jenjang karier untuk role Sales Representative.",
-            "Lakukan 1-on-1 check-in rutin untuk karyawan dengan skor risiko attrition tinggi.",
-            "Pantau skor work-life balance & job satisfaction secara berkala sebagai early warning.",
+            "Evaluasi & batasi kebijakan jam lembur, khususnya di divisi dengan beban kerja ekstrim.",
+            "Perkuat program onboarding & mentorship intensif untuk karyawan baru (tahun ke-0).",
+            "Kaji ulang skema insentif dan kepuasan kerja untuk posisi Sales Representative.",
+            "Jadwalkan sesi 1-on-1 intervensi khusus bagi 15 karyawan dengan skor risiko tertinggi.",
+            "Pantau berkala indikator Work-Life Balance sebagai early warning system HR.",
         ]
         for i, act in enumerate(actions, 1):
-            st.markdown(f"**{i}.** {act}")
+            st.markdown(f"<div style='margin-bottom:8px; font-size:0.9rem; line-height:1.4;'><b>{i}.</b> {act}</div>", unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
-    with st.expander("Lihat parameter & detail model"):
-        st.write("Best params (GridSearchCV):", model_bundle["best_params"])
-        st.write("Confusion Matrix (test set):")
+    with st.expander("Lihat Parameter & Detail Evaluasi Model"):
+        st.write("**Best Parameters (GridSearchCV):**", model_bundle["best_params"])
+        st.write("**Confusion Matrix (Test Set):**")
         cm = model_bundle["confusion_matrix"]
-        cm_df = pd.DataFrame(cm, index=["Aktual: Bertahan", "Aktual: Keluar"],
-                              columns=["Prediksi: Bertahan", "Prediksi: Keluar"])
+        cm_df = pd.DataFrame(
+            cm,
+            index=["Aktual: Bertahan", "Aktual: Keluar"],
+            columns=["Prediksi: Bertahan", "Prediksi: Keluar"]
+        )
         st.dataframe(cm_df, use_container_width=True)
